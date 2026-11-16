@@ -741,8 +741,23 @@
       <form id="form-new-visit" onsubmit="handleSaveVisit(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Paciente</label>
-          <select id="v-patient-select" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          <select id="v-patient-select" onchange="onPatientSelectChangeInVisitModal(this.value)" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
             <!-- Inyectado por JS -->
+          </select>
+        </div>
+
+        <!-- Selector de Cita Previa de la Agenda (si existe) -->
+        <div id="v-linked-appointment-section" class="bg-teal-50/70 border border-teal-200 rounded-xl p-3 space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-teal-900 flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-teal-600"></i>
+              ¿Vincular con una cita de la agenda?
+            </label>
+            <span id="badge-linked-app" class="text-[9px] bg-teal-200 text-teal-900 font-bold px-1.5 py-0.2 rounded-full">Opcional</span>
+          </div>
+          <select id="v-appointment-select" onchange="onSelectLinkedAppointment(this.value)" class="w-full text-xs font-semibold p-2 bg-white border border-teal-200 rounded-lg text-slate-800">
+            <option value="">-- Visita espontánea (sin cita previa en agenda) --</option>
+            <!-- Inyectado dinámicamente -->
           </select>
         </div>
 
@@ -781,6 +796,30 @@
             <span class="text-[10px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.5 rounded">Solo Fisio</span>
           </div>
           <textarea id="v-priv" rows="2" placeholder="Notas que la jugadora jamás verá..." class="w-full text-xs p-2 bg-white border border-amber-200 rounded-lg text-amber-950 focus:border-amber-500"></textarea>
+        </div>
+
+        <!-- Sincronización automática con la Agenda -->
+        <div id="v-sync-calendar-box" class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-800">
+            <input type="checkbox" id="v-sync-calendar" checked onchange="document.getElementById('v-sync-fields').classList.toggle('hidden', !this.checked)" class="w-4 h-4 text-teal-600 rounded border-slate-300 focus:ring-teal-500">
+            <span id="v-sync-calendar-label">Reflejar automáticamente en la Agenda como cita Realizada</span>
+          </label>
+          <div id="v-sync-fields" class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Hora sesión</label>
+              <input type="time" id="v-time" value="11:00" class="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Duración</label>
+              <select id="v-duration" class="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg">
+                <option value="15">15 min</option>
+                <option value="30" selected>30 min</option>
+                <option value="60">1 hora</option>
+                <option value="90">1h 30m</option>
+                <option value="120">2 horas</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="flex justify-end gap-2 pt-2">
@@ -1440,11 +1479,17 @@
 
           <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 space-y-3">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-xs font-bold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
                   ${v.date}
                 </span>
                 <span class="text-xs text-slate-500">Estado: <b>${v.status_after || 'N/A'}</b></span>
+                ${v.appointment_id ? `
+                  <span class="text-[10px] bg-teal-50 text-teal-800 font-bold px-2 py-0.5 rounded-full border border-teal-200 flex items-center gap-1 shadow-2xs">
+                    <i data-lucide="calendar-check" class="w-3 h-3 text-teal-600"></i>
+                    <span>En Agenda</span>
+                  </span>
+                ` : ''}
               </div>
               <div class="flex items-center gap-1.5">
                 <button onclick="openEditVisitModal(${v.id})" class="text-xs text-teal-700 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-slate-200 font-bold flex items-center gap-1 shadow-2xs">
@@ -1685,27 +1730,92 @@
       loadFisioData();
     }
 
+    function updateLinkedAppointmentsForPatient(pid, preselectedAppId = null) {
+      const select = document.getElementById('v-appointment-select');
+      const badge = document.getElementById('badge-linked-app');
+      if (!select) return;
+
+      const targetPid = parseInt(pid);
+      const patientApps = appointmentsList.filter(a => a.patient_id === targetPid && (!a.visit_id || a.id === preselectedAppId));
+
+      if (patientApps.length === 0) {
+        select.innerHTML = `<option value="">-- Visita espontánea (sin cita previa en agenda) --</option>`;
+        if (badge) badge.innerText = "Sin citas previas";
+        document.getElementById('v-sync-calendar-label').innerText = "Reflejar automáticamente en la Agenda como cita Realizada";
+      } else {
+        if (badge) badge.innerText = `${patientApps.length} citas pendientes`;
+        select.innerHTML = `
+          <option value="">-- Visita espontánea (crear nueva en agenda) --</option>
+          ${patientApps.map(a => `
+            <option value="${a.id}" ${a.id === preselectedAppId ? 'selected' : ''}>
+              📅 ${a.date} ${a.time} · ${a.title} (${a.duration || 30}m)
+            </option>
+          `).join('')}
+        `;
+        if (preselectedAppId) {
+          select.value = preselectedAppId;
+          onSelectLinkedAppointment(preselectedAppId);
+        }
+      }
+    }
+
+    function onPatientSelectChangeInVisitModal(pid) {
+      updateLinkedAppointmentsForPatient(pid);
+    }
+
+    function onSelectLinkedAppointment(aidStr) {
+      if (!aidStr) {
+        document.getElementById('v-sync-calendar-label').innerText = "Reflejar automáticamente en la Agenda como cita Realizada";
+        return;
+      }
+      const aid = parseInt(aidStr);
+      const a = appointmentsList.find(item => item.id === aid);
+      if (!a) return;
+
+      if (a.date) document.getElementById('v-date').value = a.date;
+      if (a.time) document.getElementById('v-time').value = a.time;
+      if (a.duration) document.getElementById('v-duration').value = a.duration;
+      if (a.title) document.getElementById('v-diag').value = a.title;
+      document.getElementById('v-sync-calendar-label').innerText = `Vincular con la cita de agenda y marcarla como "Realizada"`;
+    }
+
     async function handleSaveVisit(e) {
       e.preventDefault();
       const pid = document.getElementById('v-patient-select').value;
+      const appSelect = document.getElementById('v-appointment-select');
+      const aid = appSelect && appSelect.value ? parseInt(appSelect.value) : null;
+      const syncCal = document.getElementById('v-sync-calendar')?.checked ?? true;
+      const timeVal = document.getElementById('v-time')?.value || new Date().toTimeString().slice(0, 5);
+      const durVal = parseInt(document.getElementById('v-duration')?.value || 30);
+
       const body = {
         date: document.getElementById('v-date').value,
         status_after: document.getElementById('v-status').value,
         diagnosis: document.getElementById('v-diag').value.trim(),
         treatment: document.getElementById('v-treat').value.trim(),
-        private_notes: document.getElementById('v-priv').value.trim()
+        private_notes: document.getElementById('v-priv').value.trim(),
+        appointment_id: aid,
+        sync_to_calendar: syncCal,
+        time: timeVal,
+        duration: durVal
       };
 
-      await fetch(`/api/patients/${pid}/visits`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify(body)
-      });
-      closeModal('modal-new-visit');
-      document.getElementById('form-new-visit').reset();
-      document.getElementById('v-date').valueAsDate = new Date();
-      selectedPatientId = parseInt(pid);
-      loadFisioData();
+      try {
+        const res = await fetch(`/api/patients/${pid}/visits`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("Error al registrar la visita");
+        closeModal('modal-new-visit');
+        document.getElementById('form-new-visit').reset();
+        document.getElementById('v-date').valueAsDate = new Date();
+        selectedPatientId = parseInt(pid);
+        await loadFisioData();
+        await loadAppointments();
+      } catch (err) {
+        alert(err.message || "Error al registrar la visita");
+      }
     }
 
     function openEditVisitModal(vid) {
@@ -2228,9 +2338,12 @@
       if (a.patient_id) {
         document.getElementById('v-patient-select').value = a.patient_id;
       }
+      updateLinkedAppointmentsForPatient(a.patient_id || selectedPatientId, a.id);
       document.getElementById('v-date').value = a.date;
+      document.getElementById('v-time').value = a.time || '11:00';
+      document.getElementById('v-duration').value = a.duration || 30;
       document.getElementById('v-diag').value = a.title || 'Consulta en agenda';
-      document.getElementById('v-treat').value = a.notes || '';
+      if (a.notes) document.getElementById('v-treat').value = a.notes;
     }
 
     // Renderizado del Calendario
@@ -2331,11 +2444,19 @@
                         <p class="text-[11px] opacity-80 mt-0.5"><b>#${a.dorsal || '0'}</b> ${a.patient_name || 'Consulta General'}</p>
                       </div>
                       <div class="flex items-center gap-1 shrink-0">
+                        ${a.visit_id ? `
+                          <span class="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-2 py-1 rounded-lg border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                            <i data-lucide="check-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span class="hidden xs:inline">Atendida</span>
+                          </span>
+                        ` : `
+                          <button onclick="convertAppointmentToVisit(${a.id})" class="px-2 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-2xs flex items-center gap-1" title="Atender en Camilla (Registrar Visita)">
+                            <i data-lucide="clipboard-plus" class="w-3.5 h-3.5"></i>
+                            <span>Camilla</span>
+                          </button>
+                        `}
                         <button onclick="editAppointment(${a.id})" class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-700 shadow-2xs" title="Editar cita">
                           <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
-                        </button>
-                        <button onclick="convertAppointmentToVisit(${a.id})" class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-teal-800 shadow-2xs" title="Pasar a Camilla (Registrar Visita)">
-                          <i data-lucide="clipboard-plus" class="w-3.5 h-3.5"></i>
                         </button>
                       </div>
                     </div>
@@ -2374,6 +2495,9 @@
                     </div>
                     <div class="text-xs font-extrabold truncate leading-tight">${a.title}</div>
                     <div class="text-[10px] opacity-80 truncate">#${a.dorsal || ''} ${a.patient_name || ''}</div>
+                    ${a.visit_id ? `
+                      <span class="text-[9px] bg-white/90 text-emerald-800 font-black px-1.5 py-0.2 rounded mt-1 inline-block">✓ Camilla OK</span>
+                    ` : ''}
                   </div>
                 `).join('')}
 

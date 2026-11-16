@@ -117,9 +117,17 @@ def init_db():
         status TEXT DEFAULT 'Programada',
         notes TEXT DEFAULT '',
         uid TEXT UNIQUE,
+        visit_id INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
+
+    # Migración de columnas de correlación bidireccional si no existen
+    try:
+        conn.run("ALTER TABLE visits ADD COLUMN IF NOT EXISTS appointment_id INTEGER;")
+        conn.run("ALTER TABLE appointments ADD COLUMN IF NOT EXISTS visit_id INTEGER;")
+    except Exception as e:
+        pass
 
     # Sembrar paciente de prueba inicial si la tabla está vacía
     res = conn.run("SELECT COUNT(*) FROM patients;")
@@ -307,8 +315,8 @@ class handler(http.server.BaseHTTPRequestHandler):
                     r = p_rows[0]
                     pat = {"id": r[0], "name": r[1], "dorsal": r[2], "position": r[3], "status": r[4], "phone": r[5], "antecedents": r[6], "physio_notes": r[7], "public_instruction": r[8], "linked_user_id": r[9], "linked_email": r[10]}
 
-                    v_rows = conn.run("SELECT id, patient_id, date, status_after, diagnosis, treatment, private_notes FROM visits WHERE patient_id = :pid ORDER BY date DESC, id DESC;", pid=pid)
-                    visits = [{"id": v[0], "patient_id": v[1], "date": v[2], "status_after": v[3], "diagnosis": v[4], "treatment": v[5], "private_notes": v[6]} for v in v_rows]
+                    v_rows = conn.run("SELECT id, patient_id, date, status_after, diagnosis, treatment, private_notes, appointment_id FROM visits WHERE patient_id = :pid ORDER BY date DESC, id DESC;", pid=pid)
+                    visits = [{"id": v[0], "patient_id": v[1], "date": v[2], "status_after": v[3], "diagnosis": v[4], "treatment": v[5], "private_notes": v[6], "appointment_id": v[7]} for v in v_rows]
 
                     e_rows = conn.run("SELECT id, patient_id, name, sets_reps, frequency, instructions, video_url, completed FROM exercises WHERE patient_id = :pid ORDER BY id DESC;", pid=pid)
                     exercises = [{"id": e[0], "patient_id": e[1], "name": e[2], "sets_reps": e[3], "frequency": e[4], "instructions": e[5], "video_url": e[6], "completed": bool(e[7])} for e in e_rows]
@@ -369,7 +377,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             if user["role"] == "fisio_admin":
                 rows = conn.run("""
                     SELECT a.id, a.patient_id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
-                           p.name as patient_name, p.dorsal, p.position
+                           p.name as patient_name, p.dorsal, p.position, a.visit_id
                     FROM appointments a
                     LEFT JOIN patients p ON a.patient_id = p.id
                     ORDER BY a.date ASC, a.time ASC;
@@ -379,7 +387,7 @@ class handler(http.server.BaseHTTPRequestHandler):
                 if p_rows:
                     rows = conn.run("""
                         SELECT a.id, a.patient_id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
-                               p.name as patient_name, p.dorsal, p.position
+                               p.name as patient_name, p.dorsal, p.position, a.visit_id
                         FROM appointments a
                         LEFT JOIN patients p ON a.patient_id = p.id
                         WHERE a.patient_id = :pid
@@ -391,7 +399,8 @@ class handler(http.server.BaseHTTPRequestHandler):
             apps = [{
                 "id": r[0], "patient_id": r[1], "title": r[2], "date": r[3], "time": r[4],
                 "duration": r[5], "status": r[6], "notes": r[7] or "", "uid": r[8] or "",
-                "patient_name": r[9] or "Consulta General", "dorsal": r[10] or 0, "position": r[11] or ""
+                "patient_name": r[9] or "Consulta General", "dorsal": r[10] or 0, "position": r[11] or "",
+                "visit_id": r[12]
             } for r in rows]
             return self.send_json({"appointments": apps})
 
@@ -629,15 +638,40 @@ class handler(http.server.BaseHTTPRequestHandler):
             diagnosis = body.get("diagnosis", "")
             treatment = body.get("treatment", "")
             private_notes = body.get("private_notes", "")
+            appointment_id = body.get("appointment_id")
+            sync_to_calendar = body.get("sync_to_calendar", True)
+            time = body.get("time", datetime.now().strftime("%H:%M"))
+            duration = int(body.get("duration", 30))
 
             conn = get_db()
-            conn.run("""
-                INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes)
-                VALUES (:pid, :date, :status_after, :diagnosis, :treatment, :private_notes);
-            """, pid=pid, date=date, status_after=status_after, diagnosis=diagnosis, treatment=treatment, private_notes=private_notes)
+            v_res = conn.run("""
+                INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes, appointment_id)
+                VALUES (:pid, :date, :status_after, :diagnosis, :treatment, :private_notes, :aid)
+                RETURNING id;
+            """, pid=pid, date=date, status_after=status_after, diagnosis=diagnosis, treatment=treatment, private_notes=private_notes, aid=appointment_id)
+            vid = v_res[0][0] if v_res else None
             conn.run("UPDATE patients SET status = :status WHERE id = :pid;", status=status_after, pid=pid)
+
+            # Correlación bidireccional con la agenda:
+            if appointment_id:
+                conn.run("""
+                    UPDATE appointments 
+                    SET status = 'Realizada', visit_id = :vid
+                    WHERE id = :aid;
+                """, vid=vid, aid=appointment_id)
+            elif sync_to_calendar and vid:
+                uid = f"fisioteam-visit-{vid}-{int(datetime.now().timestamp())}@fisio-mcaza"
+                a_res = conn.run("""
+                    INSERT INTO appointments (patient_id, title, date, time, duration, status, notes, uid, visit_id)
+                    VALUES (:pid, :title, :date, :time, :dur, 'Realizada', :notes, :uid, :vid)
+                    RETURNING id;
+                """, pid=pid, title=diagnosis or "Sesión en camilla", date=date, time=time, dur=duration, notes=treatment, uid=uid, vid=vid)
+                if a_res:
+                    aid = a_res[0][0]
+                    conn.run("UPDATE visits SET appointment_id = :aid WHERE id = :vid;", aid=aid, vid=vid)
+
             conn.close()
-            return self.send_json({"message": "Visita registrada"})
+            return self.send_json({"message": "Visita registrada y sincronizada con la agenda", "visit_id": vid})
 
         if path.startswith("/api/visits/") and path.endswith("/edit"):
             vid = int(path.split("/")[3])
