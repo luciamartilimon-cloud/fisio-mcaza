@@ -512,6 +512,24 @@ class handler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self.send_json({"message": "Visita registrada"})
 
+        if path.startswith("/api/visits/") and path.endswith("/edit"):
+            vid = int(path.split("/")[3])
+            if user["role"] != "fisio_admin":
+                return self.send_json({"error": "Acceso denegado"}, 403)
+            date = body.get("date")
+            status_after = body.get("status_after")
+            diagnosis = body.get("diagnosis")
+            treatment = body.get("treatment")
+            private_notes = body.get("private_notes")
+            conn = get_db()
+            conn.run("""
+                UPDATE visits 
+                SET date = :date, status_after = :status, diagnosis = :diag, treatment = :treat, private_notes = :priv
+                WHERE id = :vid;
+            """, date=date, status=status_after, diag=diagnosis, treat=treatment, priv=private_notes, vid=vid)
+            conn.close()
+            return self.send_json({"message": "Visita actualizada"})
+
         if path.startswith("/api/visits/") and path.endswith("/delete"):
             vid = int(path.split("/")[3])
             if user["role"] != "fisio_admin":

@@ -184,207 +184,214 @@
   <!-- ========================================== -->
   <!-- 4. VISTA PRINCIPAL: PANEL DE LA FISIO      -->
   <!-- ========================================== -->
-  <main id="view-fisio" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+  <main id="view-fisio" class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
     
-    <!-- Barra de acciones rápidas -->
-    <div class="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-      <div class="flex items-start gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center shrink-0 border border-teal-500/30">
-          <i data-lucide="stethoscope" class="w-5 h-5"></i>
+    <!-- Barra compacta de acciones rápidas (Optimizado para ahorrar espacio vertical) -->
+    <div class="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs flex flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+          <i data-lucide="stethoscope" class="w-4 h-4"></i>
         </div>
-        <div>
-          <h2 class="text-base font-bold">Gestión de Pacientes & Rehabilitación</h2>
-          <p class="text-xs text-slate-300 mt-0.5">Controla altas, historial clínico de camilla, prescripción de ejercicios y vinculación con cuentas de jugadoras.</p>
+        <div class="min-w-0">
+          <h2 class="text-xs sm:text-sm font-extrabold text-slate-900 truncate">Área Clínica</h2>
+          <p class="text-[10px] text-slate-500 truncate hidden xs:block">Gestión directa de pacientes y sesiones</p>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        <button onclick="openModal('modal-new-patient')" class="bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2">
+        <button onclick="openModal('modal-new-patient')" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5">
           <i data-lucide="user-plus" class="w-4 h-4"></i>
-          + Nueva Paciente
+          <span>+ Nuevo Paciente</span>
         </button>
-        <button onclick="openModal('modal-new-visit')" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2">
+        <button onclick="openModal('modal-new-visit')" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5">
           <i data-lucide="clipboard-plus" class="w-4 h-4"></i>
-          Registrar Visita
+          <span>+ Nueva Visita</span>
         </button>
       </div>
     </div>
 
-    <!-- Grid 2 Columnas -->
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <!-- Grid Principal (Responsive: Selector compacto arriba en móvil, sidebar en desktop) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
       
-      <!-- Columna Izquierda: Directorio de Pacientes -->
-      <div class="lg:col-span-4 space-y-4">
-        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+      <!-- Columna / Barra de Pacientes: Pensada a escala (cientos de pacientes) -->
+      <div class="lg:col-span-4 space-y-3">
+        <div class="bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-xs">
           
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+          <div class="flex items-center justify-between mb-2.5">
+            <h3 class="font-bold text-slate-900 text-xs sm:text-sm flex items-center gap-2">
               <i data-lucide="users" class="w-4 h-4 text-teal-600"></i>
-              Pacientes Registradas
+              Pacientes
             </h3>
-            <span id="badge-total-patients" class="text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full">
+            <span id="badge-total-patients" class="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full">
               0
             </span>
           </div>
 
-          <!-- Buscador -->
-          <div class="relative mb-3">
-            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
-            <input type="text" id="patient-search-input" onkeyup="filterPatients()" placeholder="Buscar por nombre, dorsal o posición..." class="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500">
+          <!-- Selector Desplegable Rápido (Ultra cómodo cuando hay decenas/cientos de pacientes) -->
+          <div class="mb-2.5">
+            <select id="quick-patient-dropdown" onchange="selectPatient(parseInt(this.value))" class="w-full text-xs font-bold p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 text-slate-800">
+              <!-- Inyectado por JS -->
+            </select>
           </div>
 
-          <!-- Lista de Pacientes -->
-          <div id="patient-list-container" class="space-y-2 max-h-[580px] overflow-y-auto hide-scrollbar">
+          <!-- Buscador instantáneo con filtro -->
+          <div class="relative mb-2">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="patient-search-input" onkeyup="filterPatients()" placeholder="Buscar por nombre o dorsal..." class="w-full text-xs pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500">
+          </div>
+
+          <!-- Lista de Pacientes (Diseño optimizado: altura compacta en móvil, scrolleable) -->
+          <div id="patient-list-container" class="space-y-1.5 max-h-[220px] sm:max-h-[500px] overflow-y-auto hide-scrollbar">
             <!-- Inyectado por JS -->
           </div>
 
-          <button onclick="openModal('modal-new-patient')" class="w-full mt-3 py-2.5 border-2 border-dashed border-slate-200 hover:border-teal-500 rounded-xl text-xs font-bold text-slate-600 hover:text-teal-700 flex items-center justify-center gap-1.5 transition">
+          <button onclick="openModal('modal-new-patient')" class="w-full mt-2.5 py-2 border-2 border-dashed border-slate-200 hover:border-teal-500 rounded-xl text-xs font-bold text-slate-600 hover:text-teal-700 flex items-center justify-center gap-1.5 transition">
             <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-            Añadir otra paciente
+            Crear Paciente
           </button>
         </div>
       </div>
 
       <!-- Columna Derecha: Detalle de Paciente Seleccionada -->
-      <div class="lg:col-span-8 space-y-5">
+      <div class="lg:col-span-8 space-y-4">
         
         <!-- Ficha Cabecera & Acciones de Paciente -->
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4" id="patient-header-section">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3.5" id="patient-header-section">
           <!-- Inyectado por JS -->
         </div>
 
-        <!-- Pestañas Diferenciadas por Privacidad -->
+        <!-- Pestañas: 3 BOTONES CENTRADOS Y VISIBLES SIN CORTES EN MÓVIL -->
         <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           
-          <div class="flex items-center border-b border-slate-200 bg-slate-50/50 px-4 pt-2">
-            <!-- Pestaña 1: Privada Solo Fisio -->
-            <button id="tab-btn-private" onclick="setFisioTab('private')" class="px-4 py-3 text-xs font-bold border-b-2 border-amber-500 text-amber-900 flex items-center gap-2 transition">
-              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-              <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i>
-              <span>Ficha Técnica & Confidencial</span>
-              <span class="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded uppercase">Solo Fisio</span>
-            </button>
+          <!-- Contenedor de 3 botones centrados tipo segmented control -->
+          <div class="p-2 sm:p-3 bg-slate-50/80 border-b border-slate-200">
+            <div class="grid grid-cols-3 gap-1 sm:gap-2 max-w-xl mx-auto">
+              
+              <!-- Botón 1: Vista Fisio -->
+              <button id="tab-btn-private" onclick="setFisioTab('private')" class="py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition bg-white text-teal-800 shadow-xs border border-teal-200/80">
+                <i data-lucide="shield-check" class="w-4 h-4 text-teal-600 shrink-0"></i>
+                <span class="truncate">Vista Fisio</span>
+              </button>
 
-            <!-- Pestaña 2: Historial Visitas -->
-            <button id="tab-btn-visits" onclick="setFisioTab('visits')" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
-              <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
-              <span>Historial de Visitas (<span id="count-tab-visits">0</span>)</span>
-            </button>
+              <!-- Botón 2: Vista Jugador -->
+              <button id="tab-btn-public" onclick="setFisioTab('public')" class="py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition text-slate-600 hover:text-slate-900 hover:bg-white/60">
+                <i data-lucide="dumbbell" class="w-4 h-4 text-slate-500 shrink-0"></i>
+                <span class="truncate">Vista Jugador</span>
+              </button>
 
-            <!-- Pestaña 3: Lo que ve la Paciente -->
-            <button id="tab-btn-public" onclick="setFisioTab('public')" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
-              <i data-lucide="eye" class="w-4 h-4 text-teal-600"></i>
-              <span>Portal Paciente: Ejercicios & Pautas</span>
-              <span class="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded">Visible Jugadora</span>
-            </button>
+              <!-- Botón 3: Historial Visitas -->
+              <button id="tab-btn-visits" onclick="setFisioTab('visits')" class="py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 transition text-slate-600 hover:text-slate-900 hover:bg-white/60">
+                <i data-lucide="calendar" class="w-4 h-4 text-slate-500 shrink-0"></i>
+                <span class="truncate">Historial (<span id="count-tab-visits">0</span>)</span>
+              </button>
+
+            </div>
           </div>
 
-          <!-- CONTENIDO 1: FICHA CONFIDENCIAL -->
-          <div id="tab-content-private" class="p-5 space-y-5">
-            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3">
-              <div class="flex items-start gap-3">
-                <i data-lucide="lock" class="w-5 h-5 text-amber-700 shrink-0 mt-0.5"></i>
+          <!-- CONTENIDO 1: VISTA FISIO (CONFIDENCIAL) -->
+          <div id="tab-content-private" class="p-4 sm:p-5 space-y-4">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start justify-between gap-2.5">
+              <div class="flex items-start gap-2.5 min-w-0">
+                <i data-lucide="lock" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>
                 <div>
-                  <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wide">Área Restringida - Información Exclusiva de la Fisio</h4>
-                  <p class="text-xs text-amber-800 mt-0.5">
-                    Las anotaciones aquí recogidas son <b>estrictamente privadas</b> y nunca se transfieren a la vista de la jugadora.
+                  <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wide">Notas Privadas de la Fisio</h4>
+                  <p class="text-[11px] text-amber-800 mt-0.5 leading-snug">
+                    Información técnica y confidencial. La jugadora nunca la ve en su móvil.
                   </p>
                 </div>
               </div>
-              <button onclick="openEditPatientModal()" class="text-xs font-bold text-amber-900 bg-amber-200/70 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+              <button onclick="openEditPatientModal()" class="text-xs font-bold text-amber-900 bg-amber-200/70 hover:bg-amber-200 px-2.5 py-1.5 rounded-lg transition shrink-0 flex items-center gap-1">
                 <i data-lucide="edit" class="w-3.5 h-3.5"></i>
-                Editar Ficha
+                Editar
               </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <i data-lucide="history" class="w-3.5 h-3.5 text-slate-500"></i>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                <h5 class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="history" class="w-3.5 h-3.5 text-slate-400"></i>
                   Antecedentes Médicos & Lesionales
                 </h5>
-                <p id="private-antecedentes-text" class="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[70px]">
+                <p id="private-antecedentes-text" class="text-xs text-slate-800 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[60px]">
                   -
                 </p>
               </div>
 
-              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
-                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <i data-lucide="activity" class="w-3.5 h-3.5 text-slate-500"></i>
-                  Sensaciones Clínicas & Observaciones
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5">
+                <h5 class="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="activity" class="w-3.5 h-3.5 text-slate-400"></i>
+                  Sensaciones Clínicas & Camilla
                 </h5>
-                <p id="private-sensaciones-text" class="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[70px]">
+                <p id="private-sensaciones-text" class="text-xs text-slate-800 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[60px]">
                   -
                 </p>
               </div>
             </div>
           </div>
 
-          <!-- CONTENIDO 2: HISTORIAL DE VISITAS -->
-          <div id="tab-content-visits" class="hidden p-5 space-y-4">
-            <div class="flex items-center justify-between">
+          <!-- CONTENIDO 2: HISTORIAL DE VISITAS (EDITABLE Y CON EXPORTACIÓN ROBUSTA) -->
+          <div id="tab-content-visits" class="hidden p-4 sm:p-5 space-y-3.5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2 border-b border-slate-100">
               <div>
-                <h4 class="text-sm font-bold text-slate-800">Cronología de Visitas en Camilla</h4>
-                <p class="text-xs text-slate-500">Registro de exploraciones y tratamientos.</p>
+                <h4 class="text-xs sm:text-sm font-bold text-slate-900">Historial de Sesiones en Camilla</h4>
+                <p class="text-[11px] text-slate-500">Puedes editar o corregir cualquier visita guardada.</p>
               </div>
               <div class="flex items-center gap-2">
-                <button onclick="exportSinglePatientCsv()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                <button onclick="exportSinglePatientCsv()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
                   <i data-lucide="download" class="w-3.5 h-3.5 text-teal-600"></i>
-                  Exportar CSV de esta paciente
+                  <span>CSV Paciente</span>
                 </button>
-                <button onclick="openModal('modal-new-visit')" class="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition">
+                <button onclick="openModal('modal-new-visit')" class="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs transition">
                   <i data-lucide="plus" class="w-3.5 h-3.5"></i>
-                  Añadir Visita
+                  <span>Añadir Visita</span>
                 </button>
               </div>
             </div>
 
-            <div id="visits-timeline-container" class="space-y-4 pt-2">
+            <div id="visits-timeline-container" class="space-y-3 pt-1">
               <!-- Inyectado por JS -->
             </div>
           </div>
 
-          <!-- CONTENIDO 3: LO QUE VE LA PACIENTE -->
-          <div id="tab-content-public" class="hidden p-5 space-y-6">
-            <div class="bg-teal-50 border border-teal-200 rounded-xl p-3.5 flex items-start justify-between gap-3">
-              <div class="flex items-start gap-3">
-                <i data-lucide="eye" class="w-5 h-5 text-teal-700 shrink-0 mt-0.5"></i>
-                <div>
-                  <h4 class="text-xs font-bold text-teal-900 uppercase tracking-wide">Portal de la Jugadora (Lo que ella verá)</h4>
-                  <p class="text-xs text-teal-800 mt-0.5">
-                    Estas son las indicaciones públicas y la rutina de ejercicios que la jugadora consulta en su app.
-                  </p>
-                </div>
+          <!-- CONTENIDO 3: VISTA JUGADOR (EJERCICIOS Y PAUTAS) -->
+          <div id="tab-content-public" class="hidden p-4 sm:p-5 space-y-4">
+            <div class="bg-teal-50 border border-teal-200 rounded-xl p-3 flex items-start gap-2.5">
+              <i data-lucide="eye" class="w-4 h-4 text-teal-700 shrink-0 mt-0.5"></i>
+              <div>
+                <h4 class="text-xs font-bold text-teal-900 uppercase tracking-wide">Vista Jugador</h4>
+                <p class="text-[11px] text-teal-800 mt-0.5 leading-snug">
+                  Lo que la jugadora consulta directamente al entrar desde su cuenta.
+                </p>
               </div>
             </div>
 
-            <!-- Indicación médica destacada -->
-            <div class="bg-white border-2 border-slate-200 rounded-xl p-4 relative">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-xs font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+            <!-- Pauta pública -->
+            <div class="bg-white border-2 border-slate-200 rounded-xl p-3.5 relative">
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
                   <i data-lucide="bell" class="w-3.5 h-3.5"></i>
                   Pauta Activa / Mensaje del Día
                 </span>
                 <button onclick="editPublicIndicationPrompt()" class="text-xs text-teal-700 font-bold hover:underline">Cambiar Pauta</button>
               </div>
-              <p id="public-indication-text" class="text-sm font-semibold text-slate-800 bg-amber-50/60 p-3 rounded-lg border border-amber-200/80">
+              <p id="public-indication-text" class="text-xs sm:text-sm font-semibold text-slate-800 bg-amber-50/60 p-2.5 rounded-lg border border-amber-200/80">
                 -
               </p>
             </div>
 
-            <!-- Lista de ejercicios prescritos -->
-            <div class="space-y-3">
+            <!-- Ejercicios -->
+            <div class="space-y-2.5">
               <div class="flex items-center justify-between">
                 <div>
-                  <h4 class="text-sm font-bold text-slate-900">Ejercicios Prescritos</h4>
-                  <p class="text-xs text-slate-500">Rutina activa para casa, calentamiento o readaptación.</p>
+                  <h4 class="text-xs sm:text-sm font-bold text-slate-900">Ejercicios Prescritos</h4>
+                  <p class="text-[11px] text-slate-500">Rutina activa para casa o gimnasio.</p>
                 </div>
-                <button onclick="openModal('modal-add-exercise')" class="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                <button onclick="openModal('modal-add-exercise')" class="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition">
                   <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
-                  + Prescribir Ejercicio
+                  + Prescribir
                 </button>
               </div>
 
-              <div id="public-exercise-list" class="space-y-3">
+              <div id="public-exercise-list" class="space-y-2.5">
                 <!-- Inyectado por JS -->
               </div>
             </div>
@@ -692,6 +699,67 @@
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeModal('modal-new-visit')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
           <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Visita</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Visita Existente -->
+  <div id="modal-edit-visit" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="edit-3" class="w-5 h-5 text-teal-600"></i>
+          Editar Visita en Camilla
+        </h3>
+        <button onclick="closeModal('modal-edit-visit')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-edit-visit" onsubmit="handleUpdateVisit(event)" class="space-y-4">
+        <input type="hidden" id="edit-v-id">
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Fecha</label>
+            <input type="date" id="edit-v-date" required class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Estado tras la visita</label>
+            <select id="edit-v-status" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+              <option value="Disponible">🟢 Disponible</option>
+              <option value="Molestia leve">🟡 Molestia leve</option>
+              <option value="En readaptación">🟠 En readaptación</option>
+              <option value="Baja médica">🔴 Baja médica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Diagnóstico / Motivo *</label>
+          <input type="text" id="edit-v-diag" required placeholder="Ej. Sobrecarga sóleo derecho" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Tratamiento Realizado en Camilla</label>
+          <textarea id="edit-v-treat" rows="2" placeholder="Terapia manual, descarga, etc." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-700"></i>
+              Notas Confidenciales Fisio
+            </label>
+            <span class="text-[10px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.5 rounded">Solo Fisio</span>
+          </div>
+          <textarea id="edit-v-priv" rows="2" placeholder="Notas que la jugadora jamás verá..." class="w-full text-xs p-2 bg-white border border-amber-200 rounded-lg text-amber-950 focus:border-amber-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-edit-visit')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Cambios</button>
         </div>
       </form>
     </div>
@@ -1047,7 +1115,12 @@
     }
 
     function selectPatient(pid) {
+      if (!pid) return;
       selectedPatientId = pid;
+      const quickSelect = document.getElementById('quick-patient-dropdown');
+      if (quickSelect && quickSelect.value != pid) {
+        quickSelect.value = pid;
+      }
       renderPatientList();
       loadPatientDetail(pid);
     }
@@ -1132,19 +1205,22 @@
       const cVisits = document.getElementById('tab-content-visits');
       const cPublic = document.getElementById('tab-content-public');
 
+      const defaultBtnClass = "py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition text-slate-600 hover:text-slate-900 hover:bg-white/60";
+      const activeBtnClass = "py-2 sm:py-2.5 px-1 sm:px-2 rounded-xl text-xs font-bold flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1.5 transition bg-white text-teal-900 shadow-xs border border-teal-200/90";
+
       [bPrivate, bVisits, bPublic].forEach(b => {
-        b.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition";
+        b.className = defaultBtnClass;
       });
       [cPrivate, cVisits, cPublic].forEach(c => c.classList.add('hidden'));
 
       if (tab === 'private') {
-        bPrivate.className = "px-4 py-3 text-xs font-bold border-b-2 border-amber-500 text-amber-900 flex items-center gap-2 transition";
+        bPrivate.className = activeBtnClass;
         cPrivate.classList.remove('hidden');
       } else if (tab === 'visits') {
-        bVisits.className = "px-4 py-3 text-xs font-bold border-b-2 border-teal-600 text-teal-800 flex items-center gap-2 transition";
+        bVisits.className = activeBtnClass;
         cVisits.classList.remove('hidden');
       } else {
-        bPublic.className = "px-4 py-3 text-xs font-bold border-b-2 border-teal-600 text-teal-800 flex items-center gap-2 transition";
+        bPublic.className = activeBtnClass;
         cPublic.classList.remove('hidden');
       }
       lucide.createIcons();
@@ -1185,9 +1261,15 @@
                 </span>
                 <span class="text-xs text-slate-500">Estado: <b>${v.status_after || 'N/A'}</b></span>
               </div>
-              <button onclick="deleteVisit(${v.id})" class="text-slate-400 hover:text-rose-600 p-1" title="Eliminar visita">
-                <i data-lucide="trash-2" class="w-4 h-4"></i>
-              </button>
+              <div class="flex items-center gap-1.5">
+                <button onclick="openEditVisitModal(${v.id})" class="text-xs text-teal-700 bg-white hover:bg-teal-50 px-2.5 py-1 rounded-lg border border-slate-200 font-bold flex items-center gap-1 shadow-2xs">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  <span>Editar</span>
+                </button>
+                <button onclick="deleteVisit(${v.id})" class="text-slate-400 hover:text-rose-600 p-1" title="Eliminar visita">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
             </div>
 
             <div>
@@ -1441,6 +1523,46 @@
       loadFisioData();
     }
 
+    function openEditVisitModal(vid) {
+      if (!currentSelectedPatientData || !currentSelectedPatientData.visits) return;
+      const v = currentSelectedPatientData.visits.find(item => item.id === vid);
+      if (!v) return;
+
+      document.getElementById('edit-v-id').value = v.id;
+      document.getElementById('edit-v-date').value = v.date;
+      document.getElementById('edit-v-status').value = v.status_after || 'Disponible';
+      document.getElementById('edit-v-diag').value = v.diagnosis || '';
+      document.getElementById('edit-v-treat').value = v.treatment || '';
+      document.getElementById('edit-v-priv').value = v.private_notes || '';
+
+      openModal('modal-edit-visit');
+    }
+
+    async function handleUpdateVisit(e) {
+      e.preventDefault();
+      const vid = document.getElementById('edit-v-id').value;
+      const body = {
+        date: document.getElementById('edit-v-date').value,
+        status_after: document.getElementById('edit-v-status').value,
+        diagnosis: document.getElementById('edit-v-diag').value.trim(),
+        treatment: document.getElementById('edit-v-treat').value.trim(),
+        private_notes: document.getElementById('edit-v-priv').value.trim()
+      };
+
+      try {
+        const res = await fetch(`/api/visits/${vid}/edit`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("Error al actualizar la visita");
+        closeModal('modal-edit-visit');
+        loadPatientDetail(selectedPatientId);
+      } catch (err) {
+        alert(err.message || "Error al actualizar la visita");
+      }
+    }
+
     async function deleteVisit(vid) {
       if (!confirm("¿Eliminar esta visita?")) return;
       await fetch(`/api/visits/${vid}/delete`, { method: 'POST', headers: authHeaders() });
@@ -1488,9 +1610,28 @@
 
     function populatePatientSelect() {
       const select = document.getElementById('v-patient-select');
-      select.innerHTML = patients.map(p => `
-        <option value="${p.id}" ${p.id === selectedPatientId ? 'selected' : ''}>#${p.dorsal} - ${p.name} (${p.status})</option>
-      `).join('');
+      if (select) {
+        select.innerHTML = patients.map(p => `
+          <option value="${p.id}" ${p.id === selectedPatientId ? 'selected' : ''}>#${p.dorsal} - ${p.name} (${p.status})</option>
+        `).join('');
+      }
+
+      const quickSelect = document.getElementById('quick-patient-dropdown');
+      if (quickSelect) {
+        if (patients.length === 0) {
+          quickSelect.innerHTML = `<option value="">Sin pacientes registradas</option>`;
+        } else {
+          quickSelect.innerHTML = `
+            <option value="" disabled ${!selectedPatientId ? 'selected' : ''}>-- Seleccionar paciente rápido (${patients.length}) --</option>
+            ${patients.map(p => `
+              <option value="${p.id}" ${p.id === selectedPatientId ? 'selected' : ''}>#${p.dorsal} - ${p.name} · ${p.status}</option>
+            `).join('')}
+          `;
+          if (selectedPatientId) {
+            quickSelect.value = selectedPatientId;
+          }
+        }
+      }
     }
 
     // EXPORTACIÓN CSV (Descarga por Blob con Auth Header nativo)
@@ -1699,4 +1840,3 @@
   </script>
 </body>
 </html>
-/* Vercel production build trigger */
