@@ -3,7 +3,7 @@ import json
 import hashlib
 import os
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Driver PostgreSQL puro en Python (sin binarios C, compatible 100% con Vercel Serverless)
 import pg8000.native
@@ -106,6 +106,21 @@ def init_db():
     );
     """)
 
+    conn.run("""
+    CREATE TABLE IF NOT EXISTS appointments (
+        id SERIAL PRIMARY KEY,
+        patient_id INTEGER REFERENCES patients(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        date TEXT NOT NULL,
+        time TEXT NOT NULL,
+        duration INTEGER DEFAULT 30,
+        status TEXT DEFAULT 'Programada',
+        notes TEXT DEFAULT '',
+        uid TEXT UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     # Sembrar paciente de prueba inicial si la tabla está vacía
     res = conn.run("SELECT COUNT(*) FROM patients;")
     if res and res[0][0] == 0:
@@ -158,6 +173,14 @@ class handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(content.encode("utf-8-sig"))
+
+    def send_ics(self, filename, content):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/calendar; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(content.encode("utf-8"))
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -338,6 +361,110 @@ class handler(http.server.BaseHTTPRequestHandler):
             csv_data = "\n".join(csv_lines)
             filename = f"fisioteam_historial_{pname}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
             return self.send_csv(filename, csv_data)
+
+        if path == "/api/appointments":
+            if not user:
+                return self.send_json({"error": "No autenticado"}, 401)
+            conn = get_db()
+            if user["role"] == "fisio_admin":
+                rows = conn.run("""
+                    SELECT a.id, a.patient_id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
+                           p.name as patient_name, p.dorsal, p.position
+                    FROM appointments a
+                    LEFT JOIN patients p ON a.patient_id = p.id
+                    ORDER BY a.date ASC, a.time ASC;
+                """)
+            else:
+                p_rows = conn.run("SELECT id FROM patients WHERE linked_user_id = :uid LIMIT 1;", uid=user["id"])
+                if p_rows:
+                    rows = conn.run("""
+                        SELECT a.id, a.patient_id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
+                               p.name as patient_name, p.dorsal, p.position
+                        FROM appointments a
+                        LEFT JOIN patients p ON a.patient_id = p.id
+                        WHERE a.patient_id = :pid
+                        ORDER BY a.date ASC, a.time ASC;
+                    """, pid=p_rows[0][0])
+                else:
+                    rows = []
+            conn.close()
+            apps = [{
+                "id": r[0], "patient_id": r[1], "title": r[2], "date": r[3], "time": r[4],
+                "duration": r[5], "status": r[6], "notes": r[7] or "", "uid": r[8] or "",
+                "patient_name": r[9] or "Consulta General", "dorsal": r[10] or 0, "position": r[11] or ""
+            } for r in rows]
+            return self.send_json({"appointments": apps})
+
+        if path == "/api/calendar/export.ics":
+            if not user:
+                return self.send_json({"error": "No autenticado"}, 401)
+            conn = get_db()
+            if user["role"] == "fisio_admin":
+                rows = conn.run("""
+                    SELECT a.id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
+                           p.name as patient_name, p.dorsal
+                    FROM appointments a
+                    LEFT JOIN patients p ON a.patient_id = p.id
+                    ORDER BY a.date ASC, a.time ASC;
+                """)
+            else:
+                p_rows = conn.run("SELECT id FROM patients WHERE linked_user_id = :uid LIMIT 1;", uid=user["id"])
+                if p_rows:
+                    rows = conn.run("""
+                        SELECT a.id, a.title, a.date, a.time, a.duration, a.status, a.notes, a.uid,
+                               p.name as patient_name, p.dorsal
+                        FROM appointments a
+                        LEFT JOIN patients p ON a.patient_id = p.id
+                        WHERE a.patient_id = :pid
+                        ORDER BY a.date ASC, a.time ASC;
+                    """, pid=p_rows[0][0])
+                else:
+                    rows = []
+            conn.close()
+
+            lines = [
+                "BEGIN:VCALENDAR",
+                "VERSION:2.0",
+                "PRODID:-//FisioTeam//Agenda y Citas//ES",
+                "CALSCALE:GREGORIAN",
+                "METHOD:PUBLISH",
+                "X-WR-CALNAME:FisioTeam Consultas",
+                "X-WR-TIMEZONE:Europe/Madrid"
+            ]
+
+            for r in rows:
+                aid, title, dt_date, dt_time, duration, status, notes, uid, pname, dorsal = r
+                event_uid = uid or f"fisioteam-app-{aid}@fisio-mcaza"
+                try:
+                    start_dt = datetime.strptime(f"{dt_date} {dt_time}", "%Y-%m-%d %H:%M")
+                except Exception:
+                    start_dt = datetime.now()
+                end_dt = start_dt + timedelta(minutes=int(duration or 30))
+                dtstamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+                dtstart = start_dt.strftime("%Y%m%dT%H%M%S")
+                dtend = end_dt.strftime("%Y%m%dT%H%M%S")
+
+                summary = f"{title}"
+                if pname:
+                    summary += f" - #{dorsal} {pname}"
+
+                clean_notes = (notes or "").replace("\n", "\\n")
+
+                lines.extend([
+                    "BEGIN:VEVENT",
+                    f"UID:{event_uid}",
+                    f"DTSTAMP:{dtstamp}",
+                    f"DTSTART:{dtstart}",
+                    f"DTEND:{dtend}",
+                    f"SUMMARY:{summary}",
+                    f"DESCRIPTION:{clean_notes}",
+                    "STATUS:CONFIRMED",
+                    "END:VEVENT"
+                ])
+
+            lines.append("END:VCALENDAR")
+            ics_content = "\r\n".join(lines)
+            return self.send_ics("fisioteam_agenda.ics", ics_content)
 
         return self.send_json({"error": "Ruta no encontrada"}, 404)
 
@@ -567,5 +694,87 @@ class handler(http.server.BaseHTTPRequestHandler):
             conn.run("DELETE FROM exercises WHERE id = :eid;", eid=eid)
             conn.close()
             return self.send_json({"message": "Ejercicio eliminado"})
+
+        if path == "/api/appointments":
+            if user["role"] != "fisio_admin":
+                return self.send_json({"error": "Acceso denegado"}, 403)
+            patient_id = body.get("patient_id")
+            title = body.get("title", "Consulta")
+            date = body.get("date")
+            time = body.get("time")
+            duration = int(body.get("duration", 30))
+            status = body.get("status", "Programada")
+            notes = body.get("notes", "")
+            uid = body.get("uid") or f"fisioteam-app-{int(datetime.now().timestamp()*1000)}@fisio-mcaza"
+            conn = get_db()
+            res = conn.run("""
+                INSERT INTO appointments (patient_id, title, date, time, duration, status, notes, uid)
+                VALUES (:pid, :title, :date, :time, :dur, :status, :notes, :uid)
+                RETURNING id;
+            """, pid=patient_id, title=title, date=date, time=time, dur=duration, status=status, notes=notes, uid=uid)
+            conn.close()
+            return self.send_json({"message": "Cita agendada", "id": res[0][0] if res else None})
+
+        if path.startswith("/api/appointments/") and path.endswith("/edit"):
+            aid = int(path.split("/")[3])
+            if user["role"] != "fisio_admin":
+                return self.send_json({"error": "Acceso denegado"}, 403)
+            patient_id = body.get("patient_id")
+            title = body.get("title")
+            date = body.get("date")
+            time = body.get("time")
+            duration = int(body.get("duration", 30))
+            status = body.get("status", "Programada")
+            notes = body.get("notes", "")
+            conn = get_db()
+            conn.run("""
+                UPDATE appointments
+                SET patient_id = :pid, title = :title, date = :date, time = :time, duration = :dur, status = :status, notes = :notes
+                WHERE id = :aid;
+            """, pid=patient_id, title=title, date=date, time=time, dur=duration, status=status, notes=notes, aid=aid)
+            conn.close()
+            return self.send_json({"message": "Cita actualizada"})
+
+        if path.startswith("/api/appointments/") and path.endswith("/delete"):
+            aid = int(path.split("/")[3])
+            if user["role"] != "fisio_admin":
+                return self.send_json({"error": "Acceso denegado"}, 403)
+            conn = get_db()
+            conn.run("DELETE FROM appointments WHERE id = :aid;", aid=aid)
+            conn.close()
+            return self.send_json({"message": "Cita eliminada"})
+
+        if path == "/api/calendar/import":
+            if user["role"] != "fisio_admin":
+                return self.send_json({"error": "Acceso denegado"}, 403)
+            events = body.get("events", [])
+            conn = get_db()
+            imported = 0
+            updated = 0
+            for ev in events:
+                uid = ev.get("uid") or f"import-{int(datetime.now().timestamp()*1000)}-{imported}@fisio-mcaza"
+                title = ev.get("title", "Cita Importada")
+                date = ev.get("date")
+                time = ev.get("time", "10:00")
+                duration = int(ev.get("duration", 30))
+                notes = ev.get("notes", "")
+                patient_id = ev.get("patient_id")
+                
+                existing = conn.run("SELECT id FROM appointments WHERE uid = :uid;", uid=uid)
+                if existing:
+                    conn.run("""
+                        UPDATE appointments 
+                        SET title = :title, date = :date, time = :time, duration = :dur, notes = :notes
+                        WHERE uid = :uid;
+                    """, title=title, date=date, time=time, dur=duration, notes=notes, uid=uid)
+                    updated += 1
+                else:
+                    conn.run("""
+                        INSERT INTO appointments (patient_id, title, date, time, duration, status, notes, uid)
+                        VALUES (:pid, :title, :date, :time, :dur, 'Programada', :notes, :uid);
+                    """, pid=patient_id, title=title, date=date, time=time, dur=duration, notes=notes, uid=uid)
+                    imported += 1
+            conn.close()
+            return self.send_json({"message": f"{imported} citas creadas, {updated} actualizadas sin duplicados."})
 
         return self.send_json({"error": "Ruta no encontrada"}, 404)

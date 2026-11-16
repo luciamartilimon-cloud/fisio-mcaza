@@ -134,20 +134,32 @@
     <div class="max-w-7xl mx-auto px-4 py-2.5 sm:py-3">
       <div class="flex items-center justify-between gap-2">
         
-        <!-- Logo y Título -->
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-base sm:text-lg shadow-sm shadow-teal-200 shrink-0">
-            <i data-lucide="shield-plus" class="w-5 h-5"></i>
+        <!-- Logo y Selector de Módulos -->
+        <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-base shadow-sm shadow-teal-200 shrink-0">
+            <i data-lucide="shield-plus" class="w-4 h-4 sm:w-5 sm:h-5"></i>
           </div>
-          <div class="min-w-0">
-            <div class="flex items-center gap-1.5 flex-wrap">
-              <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">FisioTeam</h1>
-              <span id="role-badge" class="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
+          <div class="min-w-0 hidden md:block">
+            <div class="flex items-center gap-1.5">
+              <h1 class="text-sm font-extrabold text-slate-900 leading-tight">FisioTeam</h1>
+              <span id="role-badge" class="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200 shrink-0">
                 Fisio
               </span>
             </div>
-            <p class="text-[10px] sm:text-xs text-slate-400 truncate">Cuaderno Clínico del Club</p>
           </div>
+
+          <!-- Conmutador: Fichas Pacientes vs Agenda y Citas -->
+          <nav id="nav-module-switcher" class="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 text-xs font-bold shrink-0">
+            <button id="nav-btn-patients" onclick="switchMainView('patients')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5">
+              <i data-lucide="users" class="w-3.5 h-3.5 text-teal-600"></i>
+              <span class="hidden xs:inline">Pacientes</span>
+              <span class="xs:hidden">Fichas</span>
+            </button>
+            <button id="nav-btn-calendar" onclick="switchMainView('calendar')" class="px-2.5 sm:px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-500"></i>
+              <span>Agenda</span>
+            </button>
+          </nav>
         </div>
 
         <!-- Acciones de Usuario (Compactas en móvil, expandidas en tablet/PC) -->
@@ -407,7 +419,82 @@
   </main>
 
   <!-- ========================================== -->
-  <!-- 5. VISTA JUGADORA (SOLO SUS DATOS)         -->
+  <!-- 5. VISTA: AGENDA & CALENDARIO CLÍNICO      -->
+  <!-- ========================================== -->
+  <main id="view-calendar" class="hidden flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
+    
+    <!-- Barra Superior del Calendario -->
+    <div class="bg-white rounded-2xl p-3 sm:p-4 border border-slate-200/90 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      
+      <!-- Controles Izquierdos: Modo Semanal/Mensual + Navegación + Período -->
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+        <!-- Switch Vista Semanal / Mensual -->
+        <div class="inline-flex bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200/60">
+          <button id="cal-mode-week-btn" onclick="setCalendarMode('week')" class="px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5">
+            <i data-lucide="columns-3" class="w-3.5 h-3.5 text-teal-600"></i>
+            <span>Semanal</span>
+          </button>
+          <button id="cal-mode-month-btn" onclick="setCalendarMode('month')" class="px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5">
+            <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-slate-500"></i>
+            <span>Mensual</span>
+          </button>
+        </div>
+
+        <!-- Botones de Navegación Anterior / Hoy / Siguiente -->
+        <div class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-0.5">
+          <button onclick="navigateCalendar(-1)" class="p-1.5 hover:bg-white rounded-lg text-slate-600 transition" title="Periodo Anterior">
+            <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          </button>
+          <button onclick="navigateCalendarToday()" class="px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-white rounded-lg transition">
+            Hoy
+          </button>
+          <button onclick="navigateCalendar(1)" class="p-1.5 hover:bg-white rounded-lg text-slate-600 transition" title="Periodo Siguiente">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Etiqueta del período actual -->
+        <span id="calendar-period-label" class="text-xs sm:text-sm font-extrabold text-slate-900">
+          Noviembre 2026
+        </span>
+      </div>
+
+      <!-- Acciones Derechas: Agendar, Exportar a Apple Calendar, Importar .ics -->
+      <div class="flex items-center gap-2 flex-wrap">
+        
+        <!-- Botón Exportar Apple Calendar -->
+        <button onclick="exportAppleCalendar()" title="Exportar a Apple Calendar (.ics) con UIDs estables que evitan duplicados" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl shadow-2xs transition flex items-center gap-1.5">
+          <i data-lucide="calendar-arrow-down" class="w-4 h-4 text-teal-600"></i>
+          <span class="hidden sm:inline">Exportar a Apple Calendar</span>
+          <span class="sm:hidden">Exportar .ics</span>
+        </button>
+
+        <!-- Botón Importar .ics -->
+        <label title="Importar citas desde archivo .ics" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-bold px-3 py-2 rounded-xl shadow-2xs transition flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="calendar-arrow-up" class="w-4 h-4 text-slate-500"></i>
+          <span class="hidden sm:inline">Importar (.ics)</span>
+          <span class="sm:hidden">Importar</span>
+          <input type="file" id="input-import-ics" accept=".ics" onchange="handleImportIcs(event)" class="hidden">
+        </label>
+
+        <!-- Botón + Agendar Consulta -->
+        <button onclick="openScheduleModal()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-xs transition flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>+ Agendar Consulta</span>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Contenedor Principal del Calendario (Semanal / Mensual inyectado dinámicamente) -->
+    <div id="calendar-main-view-container" class="space-y-4">
+      <!-- Inyectado por JS -->
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 6. VISTA JUGADORA (SOLO SUS DATOS)         -->
   <!-- ========================================== -->
   <main id="view-jugadora" class="hidden flex-1 max-w-md w-full mx-auto px-4 py-6 space-y-5">
     
@@ -765,6 +852,100 @@
     </div>
   </div>
 
+  <!-- Modal: Agendar / Editar Cita o Consulta -->
+  <div id="modal-schedule-appointment" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 id="modal-schedule-title" class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="calendar-plus" class="w-5 h-5 text-teal-600"></i>
+          Agendar Consulta / Cita
+        </h3>
+        <button onclick="closeModal('modal-schedule-appointment')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-schedule-appointment" onsubmit="handleSaveAppointment(event)" class="space-y-4">
+        <input type="hidden" id="sch-app-id">
+
+        <!-- Motivo / Título de la consulta -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Motivo / Tipo de Sesión *</label>
+          <input type="text" id="sch-title" required placeholder="Ej. Descarga de gemelos, Tratamiento de rodilla..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          <div class="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <button type="button" onclick="setAppointmentTitlePreset('Descarga muscular')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2 py-0.5 rounded-lg">Descarga</button>
+            <button type="button" onclick="setAppointmentTitlePreset('Revisión en camilla')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2 py-0.5 rounded-lg">Revisión</button>
+            <button type="button" onclick="setAppointmentTitlePreset('Readaptación en campo')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2 py-0.5 rounded-lg">Readaptación</button>
+            <button type="button" onclick="setAppointmentTitlePreset('Vendaje funcional')" class="text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold px-2 py-0.5 rounded-lg">Vendaje</button>
+          </div>
+        </div>
+
+        <!-- Paciente -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Paciente</label>
+          <select id="sch-patient-select" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+            <!-- Inyectado por JS -->
+          </select>
+        </div>
+
+        <!-- Selector de Duración Rápida (15m, 30m, 1h, 1h 30m, 2h) -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-bold text-slate-700">Duración de la sesión</label>
+            <span id="label-selected-duration" class="text-xs font-extrabold text-teal-700">30 min</span>
+          </div>
+          <div class="grid grid-cols-5 gap-1.5" id="duration-chips">
+            <button type="button" onclick="selectDurationChip(15)" id="chip-dur-15" class="dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-center transition">15m</button>
+            <button type="button" onclick="selectDurationChip(30)" id="chip-dur-30" class="dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-teal-500 bg-teal-50 text-teal-800 text-center transition shadow-2xs">30m</button>
+            <button type="button" onclick="selectDurationChip(60)" id="chip-dur-60" class="dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-center transition">1h</button>
+            <button type="button" onclick="selectDurationChip(90)" id="chip-dur-90" class="dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-center transition">1h 30m</button>
+            <button type="button" onclick="selectDurationChip(120)" id="chip-dur-120" class="dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-center transition">2h</button>
+          </div>
+          <input type="hidden" id="sch-duration" value="30">
+        </div>
+
+        <!-- Fecha y Hora -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Fecha</label>
+            <input type="date" id="sch-date" required class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Hora inicio</label>
+            <input type="time" id="sch-time" required value="10:00" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+        </div>
+
+        <!-- Estado de la cita -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Estado</label>
+          <select id="sch-status" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+            <option value="Programada">🔵 Programada</option>
+            <option value="Realizada">🟢 Realizada</option>
+            <option value="Cancelada">⚪ Cancelada</option>
+          </select>
+        </div>
+
+        <!-- Notas de la sesión -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Notas / Observaciones previas</label>
+          <textarea id="sch-notes" rows="2" placeholder="Material necesario, dolor referido, etc." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex items-center justify-between pt-2">
+          <button type="button" id="btn-delete-appointment" onclick="handleDeleteCurrentAppointment()" class="hidden px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition">
+            Eliminar
+          </button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button type="button" onclick="closeModal('modal-schedule-appointment')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+            <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Cita</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal: Prescribir Ejercicio -->
   <div id="modal-add-exercise" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
@@ -997,16 +1178,20 @@
       if (currentUser.role === 'fisio_admin') {
         document.getElementById('role-badge').innerText = "Fisio (Admin)";
         document.getElementById('role-badge').className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200";
-        document.getElementById('view-fisio').classList.remove('hidden');
+        document.getElementById('nav-module-switcher').classList.remove('hidden');
         document.getElementById('view-jugadora').classList.add('hidden');
         document.getElementById('btn-manage-users').classList.remove('hidden');
         document.getElementById('btn-export-global-csv').classList.remove('hidden');
+        switchMainView('patients');
         loadFisioData();
+        loadAppointments();
       } else {
         // Es jugadora
         document.getElementById('role-badge').innerText = "Jugadora";
         document.getElementById('role-badge').className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200";
+        document.getElementById('nav-module-switcher').classList.add('hidden');
         document.getElementById('view-fisio').classList.add('hidden');
+        document.getElementById('view-calendar').classList.add('hidden');
         document.getElementById('btn-manage-users').classList.add('hidden');
         document.getElementById('btn-export-global-csv').classList.add('hidden');
 
@@ -1817,6 +2002,608 @@
       alert("Usuario actualizado correctamente.");
       openUsersModal();
       loadFisioData();
+    }
+
+    // ==========================================
+    // MÓDULO DE AGENDA & CALENDARIO CLÍNICO
+    // ==========================================
+    let currentMainModule = 'patients'; // 'patients' | 'calendar'
+    let calendarMode = 'week';          // 'week' | 'month'
+    let calendarCurrentDate = new Date();
+    let calendarSelectedDayStr = new Date().toISOString().slice(0, 10);
+    let appointmentsList = [];
+
+    function switchMainView(moduleName) {
+      currentMainModule = moduleName;
+      const btnPat = document.getElementById('nav-btn-patients');
+      const btnCal = document.getElementById('nav-btn-calendar');
+      const viewFisio = document.getElementById('view-fisio');
+      const viewCal = document.getElementById('view-calendar');
+
+      if (!btnPat || !btnCal || !viewFisio || !viewCal) return;
+
+      if (moduleName === 'patients') {
+        btnPat.className = "px-2.5 sm:px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5";
+        btnCal.className = "px-2.5 sm:px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5";
+        viewFisio.classList.remove('hidden');
+        viewCal.classList.add('hidden');
+      } else {
+        btnCal.className = "px-2.5 sm:px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5";
+        btnPat.className = "px-2.5 sm:px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5";
+        viewFisio.classList.add('hidden');
+        viewCal.classList.remove('hidden');
+        loadAppointments();
+      }
+      lucide.createIcons();
+    }
+
+    function setCalendarMode(mode) {
+      calendarMode = mode;
+      const btnWeek = document.getElementById('cal-mode-week-btn');
+      const btnMonth = document.getElementById('cal-mode-month-btn');
+
+      if (mode === 'week') {
+        btnWeek.className = "px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5";
+        btnMonth.className = "px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5";
+      } else {
+        btnMonth.className = "px-3 py-1.5 rounded-lg transition bg-white text-teal-900 shadow-2xs flex items-center gap-1.5";
+        btnWeek.className = "px-3 py-1.5 rounded-lg transition text-slate-600 hover:text-slate-900 flex items-center gap-1.5";
+      }
+      renderCalendar();
+    }
+
+    function navigateCalendar(delta) {
+      if (calendarMode === 'week') {
+        calendarCurrentDate.setDate(calendarCurrentDate.getDate() + (7 * delta));
+      } else {
+        calendarCurrentDate.setMonth(calendarCurrentDate.getMonth() + delta);
+      }
+      renderCalendar();
+    }
+
+    function navigateCalendarToday() {
+      calendarCurrentDate = new Date();
+      calendarSelectedDayStr = new Date().toISOString().slice(0, 10);
+      renderCalendar();
+    }
+
+    async function loadAppointments() {
+      try {
+        const res = await fetch('/api/appointments', { headers: authHeaders() });
+        const data = await res.json();
+        appointmentsList = data.appointments || [];
+        renderCalendar();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function getMondayOfWeek(d) {
+      const date = new Date(d);
+      const day = date.getDay();
+      const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(date.setDate(diff));
+    }
+
+    const CAL_MONTHS = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const CAL_DAYS_SHORT = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+    // Chips y selección de duración (15m, 30m, 1h, 1h 30m, 2h)
+    function selectDurationChip(min) {
+      document.getElementById('sch-duration').value = min;
+      const label = document.getElementById('label-selected-duration');
+      if (label) {
+        if (min < 60) label.innerText = `${min} min`;
+        else if (min === 60) label.innerText = `1 hora`;
+        else if (min === 90) label.innerText = `1h 30m`;
+        else label.innerText = `${min / 60} horas`;
+      }
+
+      [15, 30, 60, 90, 120].forEach(d => {
+        const btn = document.getElementById(`chip-dur-${d}`);
+        if (btn) {
+          if (d === min) {
+            btn.className = "dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-teal-500 bg-teal-50 text-teal-800 text-center transition shadow-2xs";
+          } else {
+            btn.className = "dur-chip py-2 px-1 text-xs font-bold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-center transition";
+          }
+        }
+      });
+    }
+
+    function setAppointmentTitlePreset(preset) {
+      document.getElementById('sch-title').value = preset;
+    }
+
+    function populateSchedulePatientSelect(selectedPid = null) {
+      const sel = document.getElementById('sch-patient-select');
+      if (!sel) return;
+      sel.innerHTML = `
+        <option value="">-- Consulta General / Sin Paciente --</option>
+        ${patients.map(p => `
+          <option value="${p.id}" ${p.id == selectedPid ? 'selected' : ''}>#${p.dorsal} - ${p.name} (${p.status})</option>
+        `).join('')}
+      `;
+    }
+
+    function openScheduleModal(preDate = null, preTime = '10:00', prePid = null) {
+      document.getElementById('form-schedule-appointment').reset();
+      document.getElementById('sch-app-id').value = '';
+      document.getElementById('modal-schedule-title').innerHTML = `
+        <i data-lucide="calendar-plus" class="w-5 h-5 text-teal-600"></i>
+        <span>Agendar Consulta / Cita</span>
+      `;
+      document.getElementById('btn-delete-appointment').classList.add('hidden');
+
+      populateSchedulePatientSelect(prePid || selectedPatientId);
+
+      const d = preDate ? new Date(preDate) : new Date();
+      document.getElementById('sch-date').value = preDate || d.toISOString().slice(0, 10);
+      document.getElementById('sch-time').value = preTime || '10:00';
+      document.getElementById('sch-status').value = 'Programada';
+      selectDurationChip(30);
+
+      openModal('modal-schedule-appointment');
+    }
+
+    function editAppointment(aid) {
+      const a = appointmentsList.find(item => item.id === aid);
+      if (!a) return;
+
+      document.getElementById('form-schedule-appointment').reset();
+      document.getElementById('sch-app-id').value = a.id;
+      document.getElementById('modal-schedule-title').innerHTML = `
+        <i data-lucide="edit-3" class="w-5 h-5 text-teal-600"></i>
+        <span>Editar Consulta / Cita</span>
+      `;
+      document.getElementById('btn-delete-appointment').classList.remove('hidden');
+
+      populateSchedulePatientSelect(a.patient_id);
+      document.getElementById('sch-title').value = a.title || '';
+      document.getElementById('sch-date').value = a.date;
+      document.getElementById('sch-time').value = a.time;
+      document.getElementById('sch-status').value = a.status || 'Programada';
+      document.getElementById('sch-notes').value = a.notes || '';
+      selectDurationChip(a.duration || 30);
+
+      openModal('modal-schedule-appointment');
+    }
+
+    async function handleSaveAppointment(e) {
+      e.preventDefault();
+      const aid = document.getElementById('sch-app-id').value;
+      const pidVal = document.getElementById('sch-patient-select').value;
+      const body = {
+        patient_id: pidVal ? parseInt(pidVal) : null,
+        title: document.getElementById('sch-title').value.trim(),
+        date: document.getElementById('sch-date').value,
+        time: document.getElementById('sch-time').value,
+        duration: parseInt(document.getElementById('sch-duration').value || 30),
+        status: document.getElementById('sch-status').value,
+        notes: document.getElementById('sch-notes').value.trim()
+      };
+
+      const url = aid ? `/api/appointments/${aid}/edit` : '/api/appointments';
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error("Error al guardar la cita");
+        closeModal('modal-schedule-appointment');
+        calendarSelectedDayStr = body.date;
+        await loadAppointments();
+      } catch (err) {
+        alert(err.message || "Error al guardar cita");
+      }
+    }
+
+    async function handleDeleteCurrentAppointment() {
+      const aid = document.getElementById('sch-app-id').value;
+      if (!aid) return;
+      if (!confirm("¿Eliminar esta cita de la agenda?")) return;
+      try {
+        const res = await fetch(`/api/appointments/${aid}/delete`, {
+          method: 'POST',
+          headers: authHeaders()
+        });
+        if (!res.ok) throw new Error("Error al eliminar la cita");
+        closeModal('modal-schedule-appointment');
+        await loadAppointments();
+      } catch (err) {
+        alert(err.message || "Error al eliminar");
+      }
+    }
+
+    function convertAppointmentToVisit(aid) {
+      const a = appointmentsList.find(item => item.id === aid);
+      if (!a) return;
+
+      switchMainView('patients');
+      if (a.patient_id) {
+        selectPatient(a.patient_id);
+      }
+      openModal('modal-new-visit');
+      if (a.patient_id) {
+        document.getElementById('v-patient-select').value = a.patient_id;
+      }
+      document.getElementById('v-date').value = a.date;
+      document.getElementById('v-diag').value = a.title || 'Consulta en agenda';
+      document.getElementById('v-treat').value = a.notes || '';
+    }
+
+    // Renderizado del Calendario
+    function renderCalendar() {
+      const container = document.getElementById('calendar-main-view-container');
+      const label = document.getElementById('calendar-period-label');
+      if (!container || !label) return;
+
+      if (calendarMode === 'week') {
+        const monday = getMondayOfWeek(calendarCurrentDate);
+        const sunday = new Date(monday);
+        sunday.setDate(sunday.getDate() + 6);
+        label.innerText = `${monday.getDate()} ${CAL_MONTHS[monday.getMonth()].slice(0,3)} - ${sunday.getDate()} ${CAL_MONTHS[sunday.getMonth()]} ${sunday.getFullYear()}`;
+        renderWeekCalendar(container, monday);
+      } else {
+        label.innerText = `${CAL_MONTHS[calendarCurrentDate.getMonth()]} ${calendarCurrentDate.getFullYear()}`;
+        renderMonthCalendar(container);
+      }
+      lucide.createIcons();
+    }
+
+    // VISTA SEMANAL
+    function renderWeekCalendar(container, monday) {
+      const weekDays = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(d.getDate() + i);
+        const ymd = d.toISOString().slice(0, 10);
+        weekDays.push({
+          date: d,
+          ymd: ymd,
+          dayName: CAL_DAYS_SHORT[i],
+          dayNumber: d.getDate(),
+          isToday: ymd === new Date().toISOString().slice(0, 10),
+          isSelected: ymd === calendarSelectedDayStr,
+          appointments: appointmentsList.filter(a => a.date === ymd)
+        });
+      }
+
+      // Paletas de color elegantes para las tarjetas (tipo imagen de referencia)
+      const colorThemes = [
+        'bg-indigo-50/90 border-indigo-200 text-indigo-950 ring-1 ring-indigo-200/50',
+        'bg-emerald-50/90 border-emerald-200 text-emerald-950 ring-1 ring-emerald-200/50',
+        'bg-amber-50/90 border-amber-200 text-amber-950 ring-1 ring-amber-200/50',
+        'bg-purple-50/90 border-purple-200 text-purple-950 ring-1 ring-purple-200/50',
+        'bg-sky-50/90 border-sky-200 text-sky-950 ring-1 ring-sky-200/50'
+      ];
+
+      const selectedDayData = weekDays.find(w => w.ymd === calendarSelectedDayStr) || weekDays[0];
+
+      container.innerHTML = `
+        <!-- VISTA MÓVIL: Selector de Día Arriba + Lista de Consultas Abajo -->
+        <div class="md:hidden space-y-3.5">
+          <!-- Carrusel de 7 Días -->
+          <div class="grid grid-cols-7 gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            ${weekDays.map(w => `
+              <button onclick="calendarSelectedDayStr='${w.ymd}'; renderCalendar();" class="py-2 rounded-xl flex flex-col items-center justify-center transition ${w.isSelected ? 'bg-teal-600 text-white font-extrabold shadow-sm' : 'text-slate-700 hover:bg-white'}">
+                <span class="text-[10px] font-bold ${w.isSelected ? 'text-teal-100' : 'text-slate-400'}">${w.dayName}</span>
+                <span class="text-xs font-black">${w.dayNumber}</span>
+                ${w.appointments.length > 0 ? `
+                  <span class="w-1.5 h-1.5 rounded-full mt-0.5 ${w.isSelected ? 'bg-white' : 'bg-teal-600'}"></span>
+                ` : '<span class="w-1.5 h-1.5 mt-0.5"></span>'}
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Agenda del Día Seleccionado en Móvil -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 space-y-3 shadow-xs">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 class="text-sm font-extrabold text-slate-900">${selectedDayData.dayName} ${selectedDayData.dayNumber} de ${CAL_MONTHS[selectedDayData.date.getMonth()]}</h3>
+                <p class="text-[11px] text-slate-500">${selectedDayData.appointments.length} ${selectedDayData.appointments.length === 1 ? 'consulta agendada' : 'consultas agendadas'}</p>
+              </div>
+              <button onclick="openScheduleModal('${selectedDayData.ymd}')" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold px-3 py-1.5 rounded-xl border border-teal-200 flex items-center gap-1 transition">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Agendar</span>
+              </button>
+            </div>
+
+            ${selectedDayData.appointments.length === 0 ? `
+              <div class="py-8 text-center text-slate-400 space-y-1">
+                <i data-lucide="calendar" class="w-8 h-8 mx-auto text-slate-300"></i>
+                <p class="text-xs font-bold text-slate-600">Sin consultas para este día</p>
+                <p class="text-[11px]">Pulsa "+ Agendar" para añadir una cita.</p>
+              </div>
+            ` : `
+              <div class="space-y-2.5">
+                ${selectedDayData.appointments.map((a, idx) => `
+                  <div class="rounded-xl border p-3.5 ${colorThemes[idx % colorThemes.length]} space-y-2 transition shadow-2xs">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="text-xs font-black tracking-tight">${a.time}</span>
+                          <span class="text-[10px] bg-white/80 px-1.5 py-0.2 rounded font-bold">${a.duration || 30}m</span>
+                          <span class="text-[10px] px-1.5 py-0.2 rounded font-semibold bg-white/70">${a.status}</span>
+                        </div>
+                        <h4 class="text-xs sm:text-sm font-extrabold mt-1 leading-snug">${a.title}</h4>
+                        <p class="text-[11px] opacity-80 mt-0.5"><b>#${a.dorsal || '0'}</b> ${a.patient_name || 'Consulta General'}</p>
+                      </div>
+                      <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="editAppointment(${a.id})" class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-700 shadow-2xs" title="Editar cita">
+                          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="convertAppointmentToVisit(${a.id})" class="p-1.5 rounded-lg bg-white/80 hover:bg-white text-teal-800 shadow-2xs" title="Pasar a Camilla (Registrar Visita)">
+                          <i data-lucide="clipboard-plus" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </div>
+                    ${a.notes ? `
+                      <p class="text-[11px] italic bg-white/50 p-2 rounded-lg leading-relaxed">${a.notes}</p>
+                    ` : ''}
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+
+        <!-- VISTA TABLET / DESKTOP: 7 Columnas Paralelas como en la captura de referencia -->
+        <div class="hidden md:grid md:grid-cols-7 gap-2.5">
+          ${weekDays.map(w => `
+            <div class="bg-white rounded-2xl border ${w.isToday ? 'border-teal-500 ring-2 ring-teal-100' : 'border-slate-200'} flex flex-col min-h-[460px] shadow-xs overflow-hidden">
+              <!-- Encabezado de Columna -->
+              <div class="p-2.5 border-b border-slate-100 flex items-center justify-between ${w.isToday ? 'bg-teal-50/50' : 'bg-slate-50/60'}">
+                <div>
+                  <span class="text-[11px] font-bold ${w.isToday ? 'text-teal-700 font-extrabold' : 'text-slate-500'} uppercase">${w.dayName}</span>
+                  <div class="text-base font-black ${w.isToday ? 'text-teal-900' : 'text-slate-800'} leading-none mt-0.5">${w.dayNumber}</div>
+                </div>
+                <button onclick="openScheduleModal('${w.ymd}')" class="w-6 h-6 rounded-lg bg-white border border-slate-200 hover:border-teal-500 hover:text-teal-700 text-slate-600 flex items-center justify-center transition shadow-2xs" title="Añadir cita">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+
+              <!-- Lista de citas del día -->
+              <div class="p-2 space-y-2 flex-1 overflow-y-auto">
+                ${w.appointments.map((a, idx) => `
+                  <div onclick="editAppointment(${a.id})" class="rounded-xl border p-2.5 cursor-pointer hover:shadow-xs transition ${colorThemes[idx % colorThemes.length]} space-y-1 text-left">
+                    <div class="flex items-center justify-between text-[10px] font-extrabold">
+                      <span>${a.time}</span>
+                      <span class="bg-white/80 px-1 rounded">${a.duration || 30}m</span>
+                    </div>
+                    <div class="text-xs font-extrabold truncate leading-tight">${a.title}</div>
+                    <div class="text-[10px] opacity-80 truncate">#${a.dorsal || ''} ${a.patient_name || ''}</div>
+                  </div>
+                `).join('')}
+
+                ${w.appointments.length === 0 ? `
+                  <div onclick="openScheduleModal('${w.ymd}')" class="h-28 border-2 border-dashed border-slate-100 rounded-xl hover:border-slate-300 flex items-center justify-center text-[11px] font-bold text-slate-300 hover:text-slate-500 cursor-pointer transition">
+                    + Agendar
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // VISTA MENSUAL
+    function renderMonthCalendar(container) {
+      const year = calendarCurrentDate.getFullYear();
+      const month = calendarCurrentDate.getMonth();
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+
+      let startingDay = firstDay.getDay();
+      startingDay = startingDay === 0 ? 6 : startingDay - 1; // lunes como inicio
+
+      const totalDays = lastDay.getDate();
+      const days = [];
+
+      for (let i = 0; i < startingDay; i++) {
+        days.push({ blank: true });
+      }
+
+      for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
+        const ymd = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+        const dayApps = appointmentsList.filter(a => a.date === ymd);
+        days.push({
+          dayNum,
+          ymd,
+          isToday: ymd === new Date().toISOString().slice(0, 10),
+          isSelected: ymd === calendarSelectedDayStr,
+          appointments: dayApps
+        });
+      }
+
+      const activeDay = days.find(d => !d.blank && d.ymd === calendarSelectedDayStr) || days.find(d => !d.blank);
+
+      container.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          
+          <!-- Cuadrícula del Mes (8 cols en desktop) -->
+          <div class="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-3 sm:p-4 shadow-xs space-y-2">
+            <!-- Rótulos de días -->
+            <div class="grid grid-cols-7 gap-1 text-center font-bold text-[11px] text-slate-400 py-1 border-b border-slate-100">
+              ${CAL_DAYS_SHORT.map(d => `<div>${d}</div>`).join('')}
+            </div>
+
+            <!-- Celdas de los días -->
+            <div class="grid grid-cols-7 gap-1">
+              ${days.map(d => {
+                if (d.blank) {
+                  return `<div class="min-h-[50px] sm:min-h-[70px] bg-slate-50/50 rounded-xl"></div>`;
+                }
+                return `
+                  <div onclick="calendarSelectedDayStr='${d.ymd}'; renderCalendar();" class="min-h-[50px] sm:min-h-[70px] p-1.5 rounded-xl border transition cursor-pointer flex flex-col justify-between ${d.isSelected ? 'border-teal-500 bg-teal-50/60 ring-2 ring-teal-200 shadow-2xs' : d.isToday ? 'border-teal-300 bg-teal-50/20' : 'border-slate-100 hover:border-slate-300 bg-white'}">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold ${d.isToday ? 'bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center font-black' : d.isSelected ? 'text-teal-900 font-black' : 'text-slate-700'}">${d.dayNum}</span>
+                      ${d.appointments.length > 0 ? `
+                        <span class="text-[9px] font-black px-1.5 py-0.2 rounded-full bg-teal-100 text-teal-800">${d.appointments.length}</span>
+                      ` : ''}
+                    </div>
+
+                    <div class="space-y-0.5 mt-1 overflow-hidden">
+                      ${d.appointments.slice(0, 2).map(a => `
+                        <div class="text-[9px] font-bold px-1 py-0.2 rounded bg-slate-100 text-slate-700 truncate leading-tight hidden sm:block">
+                          ${a.time} #${a.dorsal}
+                        </div>
+                      `).join('')}
+                      ${d.appointments.length > 2 ? `<div class="text-[8px] text-slate-400 font-bold hidden sm:block">+${d.appointments.length - 2} más</div>` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- Panel de Consultas del Día Seleccionado (4 cols en desktop) -->
+          <div class="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h4 class="text-xs sm:text-sm font-extrabold text-slate-900">${calendarSelectedDayStr}</h4>
+                <p class="text-[11px] text-slate-500">${activeDay ? activeDay.appointments.length : 0} citas programadas</p>
+              </div>
+              <button onclick="openScheduleModal('${calendarSelectedDayStr}')" class="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-xl shadow-xs transition flex items-center gap-1">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                <span>+ Agendar</span>
+              </button>
+            </div>
+
+            <div class="space-y-2 max-h-[380px] overflow-y-auto">
+              ${activeDay && activeDay.appointments.length > 0 ? activeDay.appointments.map(a => `
+                <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-slate-900">${a.time} (${a.duration}m)</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200 text-slate-700">${a.status}</span>
+                  </div>
+                  <h5 class="text-xs font-extrabold text-teal-900">${a.title}</h5>
+                  <p class="text-[11px] text-slate-600 font-semibold">#${a.dorsal || ''} ${a.patient_name || 'Consulta General'}</p>
+                  ${a.notes ? `<p class="text-[10px] text-slate-500 italic bg-white p-2 rounded-lg border border-slate-100">${a.notes}</p>` : ''}
+                  <div class="flex items-center justify-end gap-1.5 pt-1">
+                    <button onclick="editAppointment(${a.id})" class="text-xs text-slate-600 hover:text-slate-900 font-bold px-2 py-1 bg-white rounded-lg border border-slate-200">Editar</button>
+                    <button onclick="convertAppointmentToVisit(${a.id})" class="text-xs text-teal-700 hover:text-teal-900 font-bold px-2 py-1 bg-teal-50 rounded-lg border border-teal-200">Camilla</button>
+                  </div>
+                </div>
+              `).join('') : `
+                <div class="py-12 text-center text-slate-400">
+                  <i data-lucide="calendar" class="w-7 h-7 mx-auto text-slate-300 mb-1.5"></i>
+                  <p class="text-xs font-bold text-slate-600">Sin consultas para este día</p>
+                  <p class="text-[11px] mt-0.5">Toca en "+ Agendar" para añadir una cita.</p>
+                </div>
+              `}
+            </div>
+          </div>
+
+        </div>
+      `;
+    }
+
+    // Exportación a Apple Calendar (.ics con UIDs estables contra duplicados)
+    async function exportAppleCalendar() {
+      try {
+        const res = await fetch('/api/calendar/export.ics', { headers: authHeaders() });
+        if (!res.ok) throw new Error("Error al exportar calendario.");
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `fisioteam_agenda_${new Date().toISOString().slice(0,10)}.ics`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        alert("📅 Calendario exportado (.ics).\\n\\nAl abrir el archivo en tu iPhone, iPad o Mac se sincronizará con Apple Calendar. Como cada cita tiene un identificador permanente, puedes volver a exportar en cualquier momento y Apple Calendar actualizará los eventos existentes sin duplicados.");
+      } catch (err) {
+        console.error(err);
+        alert(err.message || "Error al descargar el archivo de calendario");
+      }
+    }
+
+    // Importación desde archivo .ics
+    async function handleImportIcs(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const text = evt.target.result;
+          const veventBlocks = text.split(/BEGIN:VEVENT/i).slice(1);
+          const events = [];
+
+          veventBlocks.forEach(block => {
+            const getField = (f) => {
+              const m = block.match(new RegExp(`${f}(?:;[^:]*)?:(.*)`, 'i'));
+              return m ? m[1].trim() : '';
+            };
+
+            const uid = getField('UID');
+            const summary = getField('SUMMARY');
+            const dtstart = getField('DTSTART');
+            const dtend = getField('DTEND');
+            const desc = getField('DESCRIPTION').replace(/\\\\n/g, '\\n');
+
+            let date = '';
+            let time = '10:00';
+            let duration = 30;
+
+            if (dtstart) {
+              const cleanStart = dtstart.replace(/[^0-9]/g, '');
+              if (cleanStart.length >= 8) {
+                date = `${cleanStart.slice(0,4)}-${cleanStart.slice(4,6)}-${cleanStart.slice(6,8)}`;
+              }
+              if (cleanStart.length >= 12) {
+                time = `${cleanStart.slice(8,10)}:${cleanStart.slice(10,12)}`;
+              }
+            }
+
+            if (dtend && dtstart) {
+              try {
+                const cleanEnd = dtend.replace(/[^0-9]/g, '');
+                if (cleanEnd.length >= 12 && dtstart.length >= 12) {
+                  const startH = parseInt(dtstart.slice(8,10)) * 60 + parseInt(dtstart.slice(10,12));
+                  const endH = parseInt(cleanEnd.slice(8,10)) * 60 + parseInt(cleanEnd.slice(10,12));
+                  if (endH > startH) duration = endH - startH;
+                }
+              } catch(e) {}
+            }
+
+            if (date) {
+              events.push({
+                uid: uid || null,
+                title: summary || "Cita Importada",
+                date: date,
+                time: time,
+                duration: duration,
+                notes: desc
+              });
+            }
+          });
+
+          if (events.length === 0) {
+            alert("No se encontraron citas válidas en el archivo .ics");
+            return;
+          }
+
+          const res = await fetch('/api/calendar/import', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: JSON.stringify({ events })
+          });
+          const data = await res.json();
+          alert(data.message || "Importación completada");
+          await loadAppointments();
+        } catch(err) {
+          alert("Error al procesar el archivo .ics: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
     }
 
     // UTILIDADES MODALES
