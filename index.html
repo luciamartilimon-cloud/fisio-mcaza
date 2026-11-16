@@ -1,0 +1,1643 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="theme-color" content="#0d9488">
+  <title>FisioTeam - Cuaderno Clínico & Portal</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Prevenir scroll horizontal, desbordamiento y zooms en móvil */
+    html, body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100vw;
+      position: relative;
+      touch-action: pan-y;
+      -webkit-text-size-adjust: 100%;
+    }
+    input, select, textarea {
+      font-size: 16px !important; /* Previene el zoom automático de Safari iOS al enfocar inputs */
+    }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col antialiased overflow-x-hidden">
+
+  <!-- ========================================== -->
+  <!-- 1. PANTALLA DE ACCESO / LOGIN & REGISTRO   -->
+  <!-- ========================================== -->
+  <div id="auth-screen" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-7 shadow-2xl border border-slate-100 relative">
+      
+      <!-- Logo y Bienvenida -->
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-teal-600/30 font-bold text-2xl">
+          <i data-lucide="shield-plus" class="w-7 h-7"></i>
+        </div>
+        <h2 class="text-2xl font-black text-slate-900 tracking-tight">FisioTeam</h2>
+        <p class="text-xs text-slate-500 mt-1" id="auth-subtitle">Inicia sesión con tu cuenta para continuar</p>
+      </div>
+
+      <!-- Banner de Primer Usuario (Si aún no hay fisio) -->
+      <div id="first-user-banner" class="hidden mb-5 bg-teal-50 border border-teal-200 rounded-2xl p-3.5 text-xs text-teal-900 flex items-start gap-2.5">
+        <i data-lucide="sparkles" class="w-5 h-5 text-teal-600 shrink-0 mt-0.5"></i>
+        <div>
+          <b>¡Eres la primera en registrarte!</b><br>
+          Esta primera cuenta obtendrá automáticamente los <b>permisos de Administradora (Fisio)</b> con control total.
+        </div>
+      </div>
+
+      <!-- Mensaje de error/éxito -->
+      <div id="auth-alert" class="hidden mb-4 p-3 rounded-xl text-xs font-semibold"></div>
+
+      <!-- Tabs Login vs Registro -->
+      <div class="flex bg-slate-100 p-1 rounded-xl mb-5 text-xs font-bold">
+        <button id="tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg bg-white text-teal-800 shadow-xs transition">Iniciar Sesión</button>
+        <button id="tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition">Crear Cuenta</button>
+      </div>
+
+      <!-- Formulario Login -->
+      <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Correo electrónico</label>
+          <input type="email" id="login-email" required placeholder="tu@correo.com" class="w-full text-sm p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Contraseña</label>
+          <input type="password" id="login-password" required placeholder="••••••••" class="w-full text-sm p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+        </div>
+        <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+          <span>Acceder</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <!-- Formulario Registro -->
+      <form id="form-register" onsubmit="handleRegister(event)" class="hidden space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Completo</label>
+          <input type="text" id="reg-name" required placeholder="Ej. Lucía Martínez" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Correo electrónico</label>
+          <input type="email" id="reg-email" required placeholder="lucia@equipo.com" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Contraseña</label>
+          <input type="password" id="reg-password" required minlength="4" placeholder="Crea una contraseña segura" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+        </div>
+        <button type="submit" class="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold text-sm rounded-xl shadow-md transition flex items-center justify-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          <span>Registrar Cuenta</span>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 2. PANTALLA DE JUGADORA PENDIENTE DE ACCESO -->
+  <!-- ========================================== -->
+  <div id="pending-screen" class="hidden fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-7 text-center space-y-4 shadow-2xl">
+      <div class="w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mx-auto text-2xl font-bold">
+        <i data-lucide="clock" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-xl font-extrabold text-slate-900">Cuenta Registrada</h3>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        ¡Hola, <b id="pending-name">Jugadora</b>! Tu cuenta se ha creado con éxito. Por motivos de privacidad médica, la <b>fisio debe activar tu acceso</b> y vincularte con tu ficha de jugadora antes de que puedas ver tus ejercicios.
+      </p>
+      <div class="pt-2">
+        <button onclick="handleLogout()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+          Cerrar Sesión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 3. TOP BAR (USUARIO LOGUEADO)              -->
+  <!-- ========================================== -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+      
+      <!-- Logo y Título -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-lg shadow-sm shadow-teal-200">
+          <i data-lucide="shield-plus" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base font-extrabold text-slate-900 leading-tight">FisioTeam</h1>
+            <span id="role-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200">
+              Admin Fisio
+            </span>
+          </div>
+          <p class="text-xs text-slate-500">Historial Clínico & Pautas del Club</p>
+        </div>
+      </div>
+
+      <!-- Acciones de Usuario -->
+      <div class="flex items-center gap-3">
+        
+        <!-- Botón Exportar CSV Global (Solo Fisio) -->
+        <button id="btn-export-global-csv" onclick="exportVisitsCsv()" class="hidden sm:flex text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:border-teal-500 hover:text-teal-700 px-3 py-1.5 rounded-xl transition items-center gap-1.5 shadow-2xs">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-teal-600"></i>
+          Exportar Todo a CSV
+        </button>
+
+        <!-- Botón Gestionar Usuarios y Permisos (Solo Fisio) -->
+        <button id="btn-manage-users" onclick="openUsersModal()" class="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+          <i data-lucide="users-cog" class="w-3.5 h-3.5"></i>
+          <span class="hidden md:inline">Usuarios & Roles</span>
+        </button>
+
+        <!-- Perfil y Logout -->
+        <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
+          <div class="hidden sm:block text-right">
+            <p class="text-xs font-bold text-slate-900 leading-tight" id="header-user-name">Fisio</p>
+            <p class="text-[10px] text-slate-500" id="header-user-email">fisio@club.com</p>
+          </div>
+          <button onclick="handleLogout()" title="Cerrar Sesión" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- 4. VISTA PRINCIPAL: PANEL DE LA FISIO      -->
+  <!-- ========================================== -->
+  <main id="view-fisio" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+    
+    <!-- Barra de acciones rápidas -->
+    <div class="bg-gradient-to-r from-teal-900 to-slate-900 rounded-3xl p-5 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center shrink-0 border border-teal-500/30">
+          <i data-lucide="stethoscope" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base font-bold">Gestión de Pacientes & Rehabilitación</h2>
+          <p class="text-xs text-slate-300 mt-0.5">Controla altas, historial clínico de camilla, prescripción de ejercicios y vinculación con cuentas de jugadoras.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="openModal('modal-new-patient')" class="bg-teal-500 hover:bg-teal-400 text-slate-950 text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-xs transition flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4"></i>
+          + Nueva Paciente
+        </button>
+        <button onclick="openModal('modal-new-visit')" class="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2.5 rounded-xl border border-white/20 transition flex items-center gap-2">
+          <i data-lucide="clipboard-plus" class="w-4 h-4"></i>
+          Registrar Visita
+        </button>
+      </div>
+    </div>
+
+    <!-- Grid 2 Columnas -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Columna Izquierda: Directorio de Pacientes -->
+      <div class="lg:col-span-4 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs">
+          
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4 text-teal-600"></i>
+              Pacientes Registradas
+            </h3>
+            <span id="badge-total-patients" class="text-xs font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-full">
+              0
+            </span>
+          </div>
+
+          <!-- Buscador -->
+          <div class="relative mb-3">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" id="patient-search-input" onkeyup="filterPatients()" placeholder="Buscar por nombre, dorsal o posición..." class="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500">
+          </div>
+
+          <!-- Lista de Pacientes -->
+          <div id="patient-list-container" class="space-y-2 max-h-[580px] overflow-y-auto hide-scrollbar">
+            <!-- Inyectado por JS -->
+          </div>
+
+          <button onclick="openModal('modal-new-patient')" class="w-full mt-3 py-2.5 border-2 border-dashed border-slate-200 hover:border-teal-500 rounded-xl text-xs font-bold text-slate-600 hover:text-teal-700 flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            Añadir otra paciente
+          </button>
+        </div>
+      </div>
+
+      <!-- Columna Derecha: Detalle de Paciente Seleccionada -->
+      <div class="lg:col-span-8 space-y-5">
+        
+        <!-- Ficha Cabecera & Acciones de Paciente -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4" id="patient-header-section">
+          <!-- Inyectado por JS -->
+        </div>
+
+        <!-- Pestañas Diferenciadas por Privacidad -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          
+          <div class="flex items-center border-b border-slate-200 bg-slate-50/50 px-4 pt-2">
+            <!-- Pestaña 1: Privada Solo Fisio -->
+            <button id="tab-btn-private" onclick="setFisioTab('private')" class="px-4 py-3 text-xs font-bold border-b-2 border-amber-500 text-amber-900 flex items-center gap-2 transition">
+              <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+              <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i>
+              <span>Ficha Técnica & Confidencial</span>
+              <span class="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded uppercase">Solo Fisio</span>
+            </button>
+
+            <!-- Pestaña 2: Historial Visitas -->
+            <button id="tab-btn-visits" onclick="setFisioTab('visits')" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+              <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+              <span>Historial de Visitas (<span id="count-tab-visits">0</span>)</span>
+            </button>
+
+            <!-- Pestaña 3: Lo que ve la Paciente -->
+            <button id="tab-btn-public" onclick="setFisioTab('public')" class="px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition">
+              <i data-lucide="eye" class="w-4 h-4 text-teal-600"></i>
+              <span>Portal Paciente: Ejercicios & Pautas</span>
+              <span class="text-[10px] bg-teal-100 text-teal-800 font-bold px-1.5 py-0.5 rounded">Visible Jugadora</span>
+            </button>
+          </div>
+
+          <!-- CONTENIDO 1: FICHA CONFIDENCIAL -->
+          <div id="tab-content-private" class="p-5 space-y-5">
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <i data-lucide="lock" class="w-5 h-5 text-amber-700 shrink-0 mt-0.5"></i>
+                <div>
+                  <h4 class="text-xs font-bold text-amber-900 uppercase tracking-wide">Área Restringida - Información Exclusiva de la Fisio</h4>
+                  <p class="text-xs text-amber-800 mt-0.5">
+                    Las anotaciones aquí recogidas son <b>estrictamente privadas</b> y nunca se transfieren a la vista de la jugadora.
+                  </p>
+                </div>
+              </div>
+              <button onclick="openEditPatientModal()" class="text-xs font-bold text-amber-900 bg-amber-200/70 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition flex items-center gap-1">
+                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+                Editar Ficha
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="history" class="w-3.5 h-3.5 text-slate-500"></i>
+                  Antecedentes Médicos & Lesionales
+                </h5>
+                <p id="private-antecedentes-text" class="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[70px]">
+                  -
+                </p>
+              </div>
+
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2">
+                <h5 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <i data-lucide="activity" class="w-3.5 h-3.5 text-slate-500"></i>
+                  Sensaciones Clínicas & Observaciones
+                </h5>
+                <p id="private-sensaciones-text" class="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200 min-h-[70px]">
+                  -
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- CONTENIDO 2: HISTORIAL DE VISITAS -->
+          <div id="tab-content-visits" class="hidden p-5 space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-bold text-slate-800">Cronología de Visitas en Camilla</h4>
+                <p class="text-xs text-slate-500">Registro de exploraciones y tratamientos.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="exportSinglePatientCsv()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                  <i data-lucide="download" class="w-3.5 h-3.5 text-teal-600"></i>
+                  Exportar CSV de esta paciente
+                </button>
+                <button onclick="openModal('modal-new-visit')" class="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 shadow-xs transition">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  Añadir Visita
+                </button>
+              </div>
+            </div>
+
+            <div id="visits-timeline-container" class="space-y-4 pt-2">
+              <!-- Inyectado por JS -->
+            </div>
+          </div>
+
+          <!-- CONTENIDO 3: LO QUE VE LA PACIENTE -->
+          <div id="tab-content-public" class="hidden p-5 space-y-6">
+            <div class="bg-teal-50 border border-teal-200 rounded-xl p-3.5 flex items-start justify-between gap-3">
+              <div class="flex items-start gap-3">
+                <i data-lucide="eye" class="w-5 h-5 text-teal-700 shrink-0 mt-0.5"></i>
+                <div>
+                  <h4 class="text-xs font-bold text-teal-900 uppercase tracking-wide">Portal de la Jugadora (Lo que ella verá)</h4>
+                  <p class="text-xs text-teal-800 mt-0.5">
+                    Estas son las indicaciones públicas y la rutina de ejercicios que la jugadora consulta en su app.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indicación médica destacada -->
+            <div class="bg-white border-2 border-slate-200 rounded-xl p-4 relative">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                  <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+                  Pauta Activa / Mensaje del Día
+                </span>
+                <button onclick="editPublicIndicationPrompt()" class="text-xs text-teal-700 font-bold hover:underline">Cambiar Pauta</button>
+              </div>
+              <p id="public-indication-text" class="text-sm font-semibold text-slate-800 bg-amber-50/60 p-3 rounded-lg border border-amber-200/80">
+                -
+              </p>
+            </div>
+
+            <!-- Lista de ejercicios prescritos -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-bold text-slate-900">Ejercicios Prescritos</h4>
+                  <p class="text-xs text-slate-500">Rutina activa para casa, calentamiento o readaptación.</p>
+                </div>
+                <button onclick="openModal('modal-add-exercise')" class="text-xs bg-slate-900 hover:bg-slate-800 text-white font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition">
+                  <i data-lucide="dumbbell" class="w-3.5 h-3.5"></i>
+                  + Prescribir Ejercicio
+                </button>
+              </div>
+
+              <div id="public-exercise-list" class="space-y-3">
+                <!-- Inyectado por JS -->
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 5. VISTA JUGADORA (SOLO SUS DATOS)         -->
+  <!-- ========================================== -->
+  <main id="view-jugadora" class="hidden flex-1 max-w-md w-full mx-auto px-4 py-6 space-y-5">
+    
+    <!-- Estado NO VINCULADA: Pantalla limpia cuando la fisio aún no le ha vinculado ficha -->
+    <div id="jugadora-unlinked-state" class="hidden bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm">
+      <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+        <i data-lucide="user-x" class="w-8 h-8"></i>
+      </div>
+      <div>
+        <h3 class="text-lg font-extrabold text-slate-900">Sin ficha vinculada todavía</h3>
+        <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+          Tu cuenta está activa, pero la fisio aún no ha asociado tu correo (<b id="unlinked-user-email">tu@correo.com</b>) a ninguna ficha de jugadora.
+        </p>
+        <p class="text-xs text-slate-400 mt-2">
+          En cuanto la fisio asocie tu ficha desde su panel, verás aquí tus ejercicios y pautas de recuperación.
+        </p>
+      </div>
+    </div>
+
+    <!-- Estado VINCULADA: Solo se muestra si la fisio le ha asociado su ficha -->
+    <div id="jugadora-linked-state" class="hidden space-y-5">
+      <div class="bg-gradient-to-br from-teal-800 to-slate-900 text-white p-5 rounded-3xl shadow-lg relative overflow-hidden">
+        <div class="flex items-center justify-between">
+          <div>
+            <span class="text-[11px] font-bold bg-white/10 text-teal-200 px-2.5 py-0.5 rounded-full border border-white/10" id="jugadora-dorsal-pos">
+              #0 • Jugadora
+            </span>
+            <h2 class="text-xl font-extrabold mt-2" id="jugadora-nombre">-</h2>
+            <p class="text-xs text-teal-200 mt-0.5" id="jugadora-estado">Estado: -</p>
+          </div>
+          <div class="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center font-black text-xl border border-white/20" id="jugadora-badge-dorsal">
+            0
+          </div>
+        </div>
+      </div>
+
+      <!-- Pauta de la fisio -->
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-xs space-y-1.5">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-amber-900 uppercase tracking-wide">
+          <i data-lucide="message-square" class="w-4 h-4 text-amber-600"></i>
+          Mensaje de la Fisio
+        </div>
+        <p class="text-xs font-medium text-amber-900 leading-relaxed" id="jugadora-indicacion">
+          -
+        </p>
+      </div>
+
+      <!-- Ejercicios para hoy -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <i data-lucide="check-circle" class="w-4 h-4 text-teal-600"></i>
+            Rutina de ejercicios
+          </h3>
+          <span class="text-xs text-slate-500" id="jugadora-progreso-text">0 de 0 hechos</span>
+        </div>
+
+        <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+          <div id="jugadora-bar" class="bg-teal-600 h-2 rounded-full transition-all duration-300" style="width: 0%;"></div>
+        </div>
+
+        <div id="jugadora-exercises-container" class="space-y-3 pt-1">
+          <!-- Inyectado por JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODALES                                    -->
+  <!-- ========================================== -->
+
+  <!-- Modal: Gestión de Usuarios y Roles (Solo Fisio) -->
+  <div id="modal-manage-users" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <div>
+          <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+            <i data-lucide="users-cog" class="w-5 h-5 text-teal-600"></i>
+            Control de Usuarios & Permisos
+          </h3>
+          <p class="text-xs text-slate-500">Gestiona los accesos y roles de todas las personas registradas en la base de datos.</p>
+        </div>
+        <button onclick="closeModal('modal-manage-users')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div id="users-table-container">
+          <!-- Inyectado por JS -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Crear Paciente -->
+  <div id="modal-new-patient" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-teal-600"></i>
+          Nueva Paciente
+        </h3>
+        <button onclick="closeModal('modal-new-patient')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-new-patient" onsubmit="handleCreatePatient(event)" class="space-y-4">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Completo *</label>
+            <input type="text" id="p-new-name" required placeholder="Ej. Inés Fernández" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Dorsal</label>
+            <input type="number" id="p-new-dorsal" placeholder="14" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Posición</label>
+            <input type="text" id="p-new-pos" placeholder="Ej. Centrocampista" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Estado</label>
+            <select id="p-new-status" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+              <option value="Disponible">🟢 Disponible</option>
+              <option value="Molestia leve">🟡 Molestia leve</option>
+              <option value="En readaptación">🟠 En readaptación</option>
+              <option value="Baja médica">🔴 Baja médica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Vincular con Correo de Jugadora (Opcional)</label>
+          <input type="email" id="p-new-email" placeholder="ines@equipo.com" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none">
+          <p class="text-[11px] text-slate-500 mt-1">Si la jugadora ya tiene cuenta o se registra después con este correo, se vinculará aquí.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Antecedentes Médicos / Lesionales (Solo Fisio)</label>
+          <textarea id="p-new-antecedents" rows="2" placeholder="Historial previo, cirugías, etc." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button type="button" onclick="closeModal('modal-new-patient')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Paciente</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Editar Paciente Completo -->
+  <div id="modal-edit-patient" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="font-bold text-slate-900 text-lg flex items-center gap-2">
+          <i data-lucide="edit" class="w-5 h-5 text-teal-600"></i>
+          Editar Paciente & Ficha
+        </h3>
+        <button onclick="closeModal('modal-edit-patient')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-edit-patient" onsubmit="handleUpdatePatient(event)" class="space-y-4">
+        <input type="hidden" id="edit-p-id">
+        <div class="grid grid-cols-3 gap-3">
+          <div class="col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Nombre Completo</label>
+            <input type="text" id="edit-p-name" required class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Dorsal</label>
+            <input type="number" id="edit-p-dorsal" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Posición</label>
+            <input type="text" id="edit-p-pos" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Estado</label>
+            <select id="edit-p-status" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+              <option value="Disponible">🟢 Disponible</option>
+              <option value="Molestia leve">🟡 Molestia leve</option>
+              <option value="En readaptación">🟠 En readaptación</option>
+              <option value="Baja médica">🔴 Baja médica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Correo de Jugadora Vinculado</label>
+          <input type="email" id="edit-p-email" placeholder="vincular@correo.com" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Antecedentes Médicos (Privado)</label>
+          <textarea id="edit-p-antecedents" rows="2" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Sensaciones Clínicas (Privado)</label>
+          <textarea id="edit-p-sensaciones" rows="2" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+          <button type="button" onclick="confirmDeletePatient()" class="text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            Eliminar Paciente
+          </button>
+          <div class="flex gap-2">
+            <button type="button" onclick="closeModal('modal-edit-patient')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+            <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Cambios</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Nueva Visita -->
+  <div id="modal-new-visit" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="clipboard-pen" class="w-5 h-5 text-teal-600"></i>
+          Añadir Visita en Camilla
+        </h3>
+        <button onclick="closeModal('modal-new-visit')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-new-visit" onsubmit="handleSaveVisit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Paciente</label>
+          <select id="v-patient-select" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+            <!-- Inyectado por JS -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Fecha</label>
+            <input type="date" id="v-date" required class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Estado tras la visita</label>
+            <select id="v-status" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+              <option value="Disponible">🟢 Disponible</option>
+              <option value="Molestia leve">🟡 Molestia leve</option>
+              <option value="En readaptación">🟠 En readaptación</option>
+              <option value="Baja médica">🔴 Baja médica</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Diagnóstico / Motivo *</label>
+          <input type="text" id="v-diag" required placeholder="Ej. Esguince ligamento lateral tobillo grado I" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Tratamiento Realizado en Camilla</label>
+          <textarea id="v-treat" rows="2" placeholder="Terapia manual, descarga, tecarterapia, etc." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 p-3 rounded-xl space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-700"></i>
+              Notas Confidenciales Fisio
+            </label>
+            <span class="text-[10px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.5 rounded">Solo Fisio</span>
+          </div>
+          <textarea id="v-priv" rows="2" placeholder="Notas que la jugadora jamás verá..." class="w-full text-xs p-2 bg-white border border-amber-200 rounded-lg text-amber-950 focus:border-amber-500"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-new-visit')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar Visita</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Prescribir Ejercicio -->
+  <div id="modal-add-exercise" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="font-bold text-slate-900 text-base flex items-center gap-2">
+          <i data-lucide="dumbbell" class="w-5 h-5 text-teal-600"></i>
+          Prescribir Ejercicio
+        </h3>
+        <button onclick="closeModal('modal-add-exercise')" class="text-slate-400 hover:text-slate-600 p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-new-exercise" onsubmit="handleSaveExercise(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Ejercicio *</label>
+          <input type="text" id="ex-name" required placeholder="Ej. Propiocepción en bosu" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Series / Reps *</label>
+            <input type="text" id="ex-reps" required placeholder="Ej. 3 series x 45 seg" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Frecuencia</label>
+            <input type="text" id="ex-freq" placeholder="Ej. Diario" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Pautas e Indicaciones Técnicas</label>
+          <textarea id="ex-inst" rows="2" placeholder="Control de rodilla, evitar valgo..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Enlace a Vídeo (YouTube / Drive)</label>
+          <input type="url" id="ex-vid" placeholder="https://youtube.com/..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-teal-500">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('modal-add-exercise')" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white rounded-xl shadow-xs">Guardar en Portal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SCRIPT FRONTEND -->
+  <script>
+    // Persistencia de sesión dual: Cookie permanente (1 año) + localStorage
+    function setPersistedToken(token) {
+      currentToken = token;
+      try {
+        localStorage.setItem('fisioteam_token', token);
+        document.cookie = `fisioteam_token=${token}; path=/; max-age=31536000; SameSite=Lax; Secure`;
+      } catch(e) {}
+    }
+
+    function getPersistedToken() {
+      try {
+        const local = localStorage.getItem('fisioteam_token');
+        if (local) return local;
+        const match = document.cookie.match(/(?:^|; )fisioteam_token=([^;]*)/);
+        if (match) return decodeURIComponent(match[1]);
+      } catch(e) {}
+      return null;
+    }
+
+    function clearPersistedToken() {
+      currentToken = null;
+      try {
+        localStorage.removeItem('fisioteam_token');
+        document.cookie = `fisioteam_token=; path=/; max-age=0; SameSite=Lax; Secure`;
+      } catch(e) {}
+    }
+
+    let currentUser = null;
+    let currentToken = getPersistedToken();
+    let patients = [];
+    let selectedPatientId = null;
+    let currentSelectedPatientData = null; // {patient, visits, exercises}
+    let currentFisioTab = 'private';
+
+    // HEADERS AUTH
+    function authHeaders() {
+      currentToken = getPersistedToken();
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': currentToken ? `Bearer ${currentToken}` : ''
+      };
+    }
+
+    // INICIALIZACIÓN
+    window.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('v-date').valueAsDate = new Date();
+      await checkSystemStatus();
+      lucide.createIcons();
+    });
+
+    async function checkSystemStatus() {
+      try {
+        const res = await fetch('/api/status', { headers: authHeaders() });
+        const data = await res.json();
+        
+        // Si no hay ninguna fisio registrada, mostrar aviso para la primera cuenta
+        if (!data.has_fisio) {
+          document.getElementById('first-user-banner').classList.remove('hidden');
+          switchAuthTab('register');
+        } else {
+          document.getElementById('first-user-banner').classList.add('hidden');
+        }
+
+        if (currentToken && data.authenticated) {
+          currentUser = data.user;
+          setupAuthenticatedUI();
+        } else {
+          showAuthScreen();
+        }
+      } catch (err) {
+        console.error("Error al conectar:", err);
+      }
+    }
+
+    // PANTALLAS DE AUTENTICACIÓN
+    function showAuthScreen() {
+      document.getElementById('auth-screen').classList.remove('hidden');
+      document.getElementById('pending-screen').classList.add('hidden');
+    }
+
+    function switchAuthTab(tab) {
+      const bLog = document.getElementById('tab-login');
+      const bReg = document.getElementById('tab-register');
+      const fLog = document.getElementById('form-login');
+      const fReg = document.getElementById('form-register');
+      const sub = document.getElementById('auth-subtitle');
+
+      if (tab === 'login') {
+        bLog.className = "flex-1 py-2 rounded-lg bg-white text-teal-800 shadow-xs transition";
+        bReg.className = "flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition";
+        fLog.classList.remove('hidden');
+        fReg.classList.add('hidden');
+        sub.innerText = "Inicia sesión con tu cuenta para continuar";
+      } else {
+        bReg.className = "flex-1 py-2 rounded-lg bg-white text-teal-800 shadow-xs transition";
+        bLog.className = "flex-1 py-2 rounded-lg text-slate-500 hover:text-slate-800 transition";
+        fReg.classList.remove('hidden');
+        fLog.classList.add('hidden');
+        sub.innerText = "Crea tu cuenta de acceso a FisioTeam";
+      }
+      lucide.createIcons();
+    }
+
+    function showAuthAlert(msg, isError = true) {
+      const el = document.getElementById('auth-alert');
+      el.className = `mb-4 p-3 rounded-xl text-xs font-semibold ${isError ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'}`;
+      el.innerText = msg;
+      el.classList.remove('hidden');
+    }
+
+    // HANDLER LOGIN
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
+
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showAuthAlert(data.error || "Error al iniciar sesión");
+          return;
+        }
+
+        setPersistedToken(data.token);
+        currentUser = data.user;
+        setupAuthenticatedUI();
+      } catch (err) {
+        showAuthAlert("Error de conexión al servidor");
+      }
+    }
+
+    // HANDLER REGISTER
+    async function handleRegister(e) {
+      e.preventDefault();
+      const name = document.getElementById('reg-name').value.trim();
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showAuthAlert(data.error || "Error al registrar");
+          return;
+        }
+
+        setPersistedToken(data.token);
+        currentUser = data.user;
+        setupAuthenticatedUI();
+      } catch (err) {
+        showAuthAlert("Error al conectar");
+      }
+    }
+
+    // LOGOUT
+    async function handleLogout() {
+      if (currentToken) {
+        await fetch('/api/logout', { method: 'POST', headers: authHeaders() });
+      }
+      clearPersistedToken();
+      currentUser = null;
+      location.reload();
+    }
+
+    // CONFIGURACIÓN TRAS LOGIN
+    function setupAuthenticatedUI() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('header-user-name').innerText = currentUser.name;
+      document.getElementById('header-user-email').innerText = currentUser.email;
+
+      if (currentUser.role === 'fisio_admin') {
+        document.getElementById('role-badge').innerText = "Fisio (Admin)";
+        document.getElementById('role-badge').className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-200";
+        document.getElementById('view-fisio').classList.remove('hidden');
+        document.getElementById('view-jugadora').classList.add('hidden');
+        document.getElementById('btn-manage-users').classList.remove('hidden');
+        document.getElementById('btn-export-global-csv').classList.remove('hidden');
+        loadFisioData();
+      } else {
+        // Es jugadora
+        document.getElementById('role-badge').innerText = "Jugadora";
+        document.getElementById('role-badge').className = "text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200";
+        document.getElementById('view-fisio').classList.add('hidden');
+        document.getElementById('btn-manage-users').classList.add('hidden');
+        document.getElementById('btn-export-global-csv').classList.add('hidden');
+
+        if (!currentUser.approved) {
+          document.getElementById('pending-name').innerText = currentUser.name;
+          document.getElementById('pending-screen').classList.remove('hidden');
+        } else {
+          document.getElementById('pending-screen').classList.add('hidden');
+          document.getElementById('view-jugadora').classList.remove('hidden');
+          loadJugadoraData();
+        }
+      }
+      lucide.createIcons();
+    }
+
+    // CARGAR DATOS FISIO
+    async function loadFisioData() {
+      try {
+        const res = await fetch('/api/patients', { headers: authHeaders() });
+        const data = await res.json();
+        patients = data.patients || [];
+        document.getElementById('badge-total-patients').innerText = patients.length;
+
+        if (patients.length > 0) {
+          if (!selectedPatientId || !patients.some(p => p.id === selectedPatientId)) {
+            selectedPatientId = patients[0].id;
+          }
+          await loadPatientDetail(selectedPatientId);
+        } else {
+          selectedPatientId = null;
+          renderEmptyPatient();
+        }
+        renderPatientList();
+        populatePatientSelect();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadPatientDetail(pid) {
+      try {
+        const res = await fetch(`/api/patients/${pid}`, { headers: authHeaders() });
+        currentSelectedPatientData = await res.json();
+        renderPatientHeader();
+        renderPrivateTab();
+        renderVisitsTab();
+        renderPublicTab();
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // LISTADO LATERAL DE PACIENTES
+    function renderPatientList() {
+      const container = document.getElementById('patient-list-container');
+      const search = (document.getElementById('patient-search-input')?.value || '').toLowerCase();
+
+      const filtered = patients.filter(p => 
+        p.name.toLowerCase().includes(search) ||
+        p.dorsal.toString().includes(search) ||
+        p.position.toLowerCase().includes(search)
+      );
+
+      container.innerHTML = filtered.map(p => {
+        const isSel = p.id === selectedPatientId;
+        const statusColors = {
+          'Disponible': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          'Molestia leve': 'bg-yellow-50 text-yellow-800 border-yellow-200',
+          'En readaptación': 'bg-amber-50 text-amber-800 border-amber-200',
+          'Baja médica': 'bg-rose-50 text-rose-700 border-rose-200'
+        }[p.status] || 'bg-slate-50 text-slate-700 border-slate-200';
+
+        return `
+          <div onclick="selectPatient(${p.id})" class="p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isSel ? 'bg-teal-50/80 border-teal-400 shadow-xs' : 'bg-white border-slate-200/90 hover:border-slate-300'}">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl ${isSel ? 'bg-teal-600 text-white font-extrabold' : 'bg-slate-100 text-slate-700 font-bold'} flex items-center justify-center text-sm shadow-2xs">
+                #${p.dorsal}
+              </div>
+              <div>
+                <p class="text-xs font-bold text-slate-900 leading-tight">${p.name}</p>
+                <p class="text-[11px] text-slate-500">${p.position}</p>
+              </div>
+            </div>
+
+            <div class="flex flex-col items-end gap-1">
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusColors}">
+                ${p.status}
+              </span>
+              ${p.linked_email ? `
+                <span class="text-[9px] text-teal-700 font-bold flex items-center gap-0.5">
+                  <span class="w-1.5 h-1.5 rounded-full ${p.user_approved ? 'bg-teal-500' : 'bg-amber-500'}"></span>
+                  ${p.user_approved ? 'App Activa' : 'Pendiente'}
+                </span>
+              ` : `
+                <span class="text-[9px] text-slate-400 font-medium">Sin cuenta</span>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function filterPatients() {
+      renderPatientList();
+    }
+
+    function selectPatient(pid) {
+      selectedPatientId = pid;
+      renderPatientList();
+      loadPatientDetail(pid);
+    }
+
+    // CABECERA PACIENTE
+    function renderPatientHeader() {
+      if (!currentSelectedPatientData) return;
+      const p = currentSelectedPatientData.patient;
+      const container = document.getElementById('patient-header-section');
+
+      const statusColors = {
+        'Disponible': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        'Molestia leve': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        'En readaptación': 'bg-amber-100 text-amber-800 border-amber-200',
+        'Baja médica': 'bg-rose-100 text-rose-800 border-rose-200'
+      }[p.status] || 'bg-slate-100 text-slate-800 border-slate-200';
+
+      container.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="w-14 h-14 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-black text-2xl shadow-sm">
+              #${p.dorsal}
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-xl font-extrabold text-slate-900">${p.name}</h3>
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full border ${statusColors}">
+                  ${p.status}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">${p.position} • ${currentSelectedPatientData.visits.length} visitas registradas</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="openEditPatientModal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+              Editar Paciente
+            </button>
+            <button onclick="openModal('modal-new-visit')" class="text-xs bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5 shadow-xs">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+              Nueva Visita
+            </button>
+          </div>
+        </div>
+
+        <!-- Caja de Vinculación de Cuenta -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg ${p.linked_email ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-600'} flex items-center justify-center shrink-0">
+              <i data-lucide="${p.linked_email ? 'link' : 'lock'}" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-800">
+                Cuenta de Jugadora:
+                <span class="${p.linked_email ? 'text-teal-700' : 'text-slate-500'}">
+                  ${p.linked_email ? p.linked_email : 'Sin cuenta vinculada todavía'}
+                </span>
+              </p>
+              <p class="text-[11px] text-slate-500">
+                ${p.linked_email ? 'La jugadora puede entrar con este correo para consultar sus ejercicios.' : 'Edita la paciente para asociarle el correo con el que se registrará.'}
+              </p>
+            </div>
+          </div>
+          <button onclick="openEditPatientModal()" class="text-xs font-bold text-teal-700 bg-white border border-slate-200 hover:border-teal-500 px-3 py-1.5 rounded-xl shadow-2xs transition">
+            Cambiar Vinculación
+          </button>
+        </div>
+      `;
+
+      document.getElementById('count-tab-visits').innerText = currentSelectedPatientData.visits.length;
+    }
+
+    // PESTAÑAS FISIO
+    function setFisioTab(tab) {
+      currentFisioTab = tab;
+      const bPrivate = document.getElementById('tab-btn-private');
+      const bVisits = document.getElementById('tab-btn-visits');
+      const bPublic = document.getElementById('tab-btn-public');
+
+      const cPrivate = document.getElementById('tab-content-private');
+      const cVisits = document.getElementById('tab-content-visits');
+      const cPublic = document.getElementById('tab-content-public');
+
+      [bPrivate, bVisits, bPublic].forEach(b => {
+        b.className = "px-4 py-3 text-xs font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 transition";
+      });
+      [cPrivate, cVisits, cPublic].forEach(c => c.classList.add('hidden'));
+
+      if (tab === 'private') {
+        bPrivate.className = "px-4 py-3 text-xs font-bold border-b-2 border-amber-500 text-amber-900 flex items-center gap-2 transition";
+        cPrivate.classList.remove('hidden');
+      } else if (tab === 'visits') {
+        bVisits.className = "px-4 py-3 text-xs font-bold border-b-2 border-teal-600 text-teal-800 flex items-center gap-2 transition";
+        cVisits.classList.remove('hidden');
+      } else {
+        bPublic.className = "px-4 py-3 text-xs font-bold border-b-2 border-teal-600 text-teal-800 flex items-center gap-2 transition";
+        cPublic.classList.remove('hidden');
+      }
+      lucide.createIcons();
+    }
+
+    function renderPrivateTab() {
+      if (!currentSelectedPatientData) return;
+      const p = currentSelectedPatientData.patient;
+      document.getElementById('private-antecedentes-text').innerText = p.antecedents || "Sin antecedentes registrados.";
+      document.getElementById('private-sensaciones-text').innerText = p.physio_notes || "Sin sensaciones clínicas registradas.";
+    }
+
+    function renderVisitsTab() {
+      if (!currentSelectedPatientData) return;
+      const visits = currentSelectedPatientData.visits;
+      const container = document.getElementById('visits-timeline-container');
+
+      if (visits.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 p-6">
+            <i data-lucide="calendar" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+            <p class="text-xs font-bold text-slate-700">Sin visitas en camilla registradas</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Pulsa en "Añadir Visita" para registrar la primera sesión.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = visits.map(v => `
+        <div class="relative pl-6 pb-5 border-l-2 border-slate-200 last:border-transparent last:pb-0">
+          <div class="absolute -left-[9px] top-0.5 w-4 h-4 rounded-full bg-teal-600 ring-4 ring-teal-50"></div>
+
+          <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                  ${v.date}
+                </span>
+                <span class="text-xs text-slate-500">Estado: <b>${v.status_after || 'N/A'}</b></span>
+              </div>
+              <button onclick="deleteVisit(${v.id})" class="text-slate-400 hover:text-rose-600 p-1" title="Eliminar visita">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <div>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Motivo / Diagnóstico</p>
+              <p class="text-sm font-bold text-slate-800">${v.diagnosis}</p>
+            </div>
+
+            <div>
+              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tratamiento Realizado</p>
+              <p class="text-xs text-slate-700 leading-relaxed">${v.treatment || 'No especificado.'}</p>
+            </div>
+
+            ${v.private_notes ? `
+              <div class="bg-amber-100/70 border border-amber-200 rounded-xl p-3 text-xs text-amber-950">
+                <div class="flex items-center gap-1 text-[10px] font-extrabold text-amber-900 uppercase tracking-wider mb-1">
+                  <i data-lucide="lock" class="w-3 h-3 text-amber-700"></i>
+                  Notas Confidenciales Fisio (La jugadora jamás las ve)
+                </div>
+                <p class="leading-relaxed">${v.private_notes}</p>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPublicTab() {
+      if (!currentSelectedPatientData) return;
+      const p = currentSelectedPatientData.patient;
+      const exercises = currentSelectedPatientData.exercises;
+
+      document.getElementById('public-indication-text').innerText = p.public_instruction || "Sin indicación médica activa.";
+
+      const container = document.getElementById('public-exercise-list');
+      if (exercises.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 p-4">
+            <p class="text-xs text-slate-500">No hay ejercicios prescritos actualmente para esta paciente.</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = exercises.map(ex => `
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-start justify-between gap-3">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <h5 class="text-xs font-bold text-slate-900">${ex.name}</h5>
+              <span class="text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-200 px-2 py-0.5 rounded-md">
+                ${ex.sets_reps}
+              </span>
+              ${ex.frequency ? `<span class="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md">${ex.frequency}</span>` : ''}
+            </div>
+            <p class="text-xs text-slate-600">${ex.instructions || ''}</p>
+            ${ex.video_url ? `
+              <a href="${ex.video_url}" target="_blank" class="inline-flex items-center gap-1 text-[11px] text-teal-700 font-bold hover:underline mt-1">
+                <i data-lucide="play-circle" class="w-3.5 h-3.5"></i>
+                Ver vídeo de demostración
+              </a>
+            ` : ''}
+          </div>
+          <button onclick="deleteExercise(${ex.id})" class="text-slate-400 hover:text-rose-600 p-1">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    // CARGAR DATOS JUGADORA
+    async function loadJugadoraData() {
+      try {
+        const res = await fetch('/api/patients', { headers: authHeaders() });
+        const data = await res.json();
+        const p = data.patient;
+
+        const unlinkedDiv = document.getElementById('jugadora-unlinked-state');
+        const linkedDiv = document.getElementById('jugadora-linked-state');
+
+        // Si la fisio aún no la ha vinculado a ninguna paciente
+        if (!p) {
+          unlinkedDiv.classList.remove('hidden');
+          linkedDiv.classList.add('hidden');
+          document.getElementById('unlinked-user-email').innerText = currentUser.email;
+          lucide.createIcons();
+          return;
+        }
+
+        // Si está vinculada, mostrar su ficha real
+        unlinkedDiv.classList.add('hidden');
+        linkedDiv.classList.remove('hidden');
+
+        const detRes = await fetch(`/api/patients/${p.id}`, { headers: authHeaders() });
+        const detData = await detRes.json();
+
+        document.getElementById('jugadora-nombre').innerText = p.name;
+        document.getElementById('jugadora-dorsal-pos').innerText = `#${p.dorsal} • ${p.position}`;
+        document.getElementById('jugadora-estado').innerText = `Estado médico: ${p.status}`;
+        document.getElementById('jugadora-badge-dorsal').innerText = p.dorsal;
+        document.getElementById('jugadora-indicacion').innerText = p.public_instruction || "Sin pauta especial indicada para hoy.";
+
+        const total = detData.exercises.length;
+        const done = detData.exercises.filter(e => e.completed).length;
+        const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
+        document.getElementById('jugadora-progreso-text').innerText = `${done} de ${total} hechos (${pct}%)`;
+        document.getElementById('jugadora-bar').style.width = `${pct}%`;
+
+        const container = document.getElementById('jugadora-exercises-container');
+        if (total === 0) {
+          container.innerHTML = `
+            <div class="text-center py-8 bg-white rounded-2xl border border-slate-200 p-4">
+              <p class="text-xs text-slate-500">La fisio no te ha prescrito ejercicios por ahora.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = detData.exercises.map(ex => `
+          <div class="bg-white rounded-2xl border ${ex.completed ? 'border-teal-300 bg-teal-50/20' : 'border-slate-200'} p-4 shadow-2xs space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h4 class="font-bold text-slate-900 text-sm ${ex.completed ? 'line-through text-slate-400' : ''}">${ex.name}</h4>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="text-[11px] font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-lg border border-teal-100">${ex.sets_reps}</span>
+                  ${ex.frequency ? `<span class="text-[10px] text-slate-500">${ex.frequency}</span>` : ''}
+                </div>
+              </div>
+
+              <button onclick="toggleExercise(${ex.id})" class="w-8 h-8 rounded-full flex items-center justify-center transition-all ${ex.completed ? 'bg-teal-600 text-white shadow-xs' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}">
+                <i data-lucide="check" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+            <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 leading-relaxed">
+              💡 <b>Indicación:</b> ${ex.instructions || 'Realizar con buena técnica y sin dolor.'}
+            </p>
+
+            ${ex.video_url ? `
+              <a href="${ex.video_url}" target="_blank" class="inline-flex items-center gap-1.5 text-xs text-teal-700 font-bold hover:underline">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                Ver vídeo de referencia
+              </a>
+            ` : ''}
+          </div>
+        `).join('');
+
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleExercise(eid) {
+      await fetch(`/api/exercises/${eid}/toggle`, { method: 'POST', headers: authHeaders() });
+      if (currentUser.role === 'fisio_admin') {
+        loadPatientDetail(selectedPatientId);
+      } else {
+        loadJugadoraData();
+      }
+    }
+
+    // ACCIONES CRUD FISIO
+    async function handleCreatePatient(e) {
+      e.preventDefault();
+      const body = {
+        name: document.getElementById('p-new-name').value.trim(),
+        dorsal: document.getElementById('p-new-dorsal').value,
+        position: document.getElementById('p-new-pos').value.trim(),
+        status: document.getElementById('p-new-status').value,
+        linked_email: document.getElementById('p-new-email').value.trim(),
+        antecedents: document.getElementById('p-new-antecedents').value.trim()
+      };
+
+      const res = await fetch('/api/patients', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      closeModal('modal-new-patient');
+      document.getElementById('form-new-patient').reset();
+      selectedPatientId = data.id;
+      loadFisioData();
+    }
+
+    function openEditPatientModal() {
+      if (!currentSelectedPatientData) return;
+      const p = currentSelectedPatientData.patient;
+      document.getElementById('edit-p-id').value = p.id;
+      document.getElementById('edit-p-name').value = p.name;
+      document.getElementById('edit-p-dorsal').value = p.dorsal;
+      document.getElementById('edit-p-pos').value = p.position;
+      document.getElementById('edit-p-status').value = p.status;
+      document.getElementById('edit-p-email').value = p.linked_email || '';
+      document.getElementById('edit-p-antecedents').value = p.antecedents || '';
+      document.getElementById('edit-p-sensaciones').value = p.physio_notes || '';
+      openModal('modal-edit-patient');
+    }
+
+    async function handleUpdatePatient(e) {
+      e.preventDefault();
+      const pid = document.getElementById('edit-p-id').value;
+      const body = {
+        name: document.getElementById('edit-p-name').value.trim(),
+        dorsal: document.getElementById('edit-p-dorsal').value,
+        position: document.getElementById('edit-p-pos').value.trim(),
+        status: document.getElementById('edit-p-status').value,
+        linked_email: document.getElementById('edit-p-email').value.trim(),
+        antecedents: document.getElementById('edit-p-antecedents').value.trim(),
+        physio_notes: document.getElementById('edit-p-sensaciones').value.trim()
+      };
+
+      await fetch(`/api/patients/${pid}`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      closeModal('modal-edit-patient');
+      loadFisioData();
+    }
+
+    async function confirmDeletePatient() {
+      if (!confirm("¿Segura que deseas eliminar esta paciente y TODO su historial de visitas y ejercicios? Esta acción no se puede deshacer.")) return;
+      const pid = document.getElementById('edit-p-id').value;
+      await fetch(`/api/patients/${pid}/delete`, { method: 'POST', headers: authHeaders() });
+      closeModal('modal-edit-patient');
+      selectedPatientId = null;
+      loadFisioData();
+    }
+
+    async function handleSaveVisit(e) {
+      e.preventDefault();
+      const pid = document.getElementById('v-patient-select').value;
+      const body = {
+        date: document.getElementById('v-date').value,
+        status_after: document.getElementById('v-status').value,
+        diagnosis: document.getElementById('v-diag').value.trim(),
+        treatment: document.getElementById('v-treat').value.trim(),
+        private_notes: document.getElementById('v-priv').value.trim()
+      };
+
+      await fetch(`/api/patients/${pid}/visits`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      closeModal('modal-new-visit');
+      document.getElementById('form-new-visit').reset();
+      document.getElementById('v-date').valueAsDate = new Date();
+      selectedPatientId = parseInt(pid);
+      loadFisioData();
+    }
+
+    async function deleteVisit(vid) {
+      if (!confirm("¿Eliminar esta visita?")) return;
+      await fetch(`/api/visits/${vid}/delete`, { method: 'POST', headers: authHeaders() });
+      loadPatientDetail(selectedPatientId);
+    }
+
+    async function handleSaveExercise(e) {
+      e.preventDefault();
+      const body = {
+        name: document.getElementById('ex-name').value.trim(),
+        sets_reps: document.getElementById('ex-reps').value.trim(),
+        frequency: document.getElementById('ex-freq').value.trim(),
+        instructions: document.getElementById('ex-inst').value.trim(),
+        video_url: document.getElementById('ex-vid').value.trim()
+      };
+
+      await fetch(`/api/patients/${selectedPatientId}/exercises`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body)
+      });
+      closeModal('modal-add-exercise');
+      document.getElementById('form-new-exercise').reset();
+      loadPatientDetail(selectedPatientId);
+    }
+
+    async function deleteExercise(eid) {
+      if (!confirm("¿Eliminar este ejercicio?")) return;
+      await fetch(`/api/exercises/${eid}/delete`, { method: 'POST', headers: authHeaders() });
+      loadPatientDetail(selectedPatientId);
+    }
+
+    async function editPublicIndicationPrompt() {
+      const current = currentSelectedPatientData.patient.public_instruction || '';
+      const updated = prompt("Nueva indicación / pauta pública para la jugadora:", current);
+      if (updated !== null) {
+        await fetch(`/api/patients/${selectedPatientId}`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ public_instruction: updated })
+        });
+        loadPatientDetail(selectedPatientId);
+      }
+    }
+
+    function populatePatientSelect() {
+      const select = document.getElementById('v-patient-select');
+      select.innerHTML = patients.map(p => `
+        <option value="${p.id}" ${p.id === selectedPatientId ? 'selected' : ''}>#${p.dorsal} - ${p.name} (${p.status})</option>
+      `).join('');
+    }
+
+    // EXPORTACIÓN CSV (Descarga por Blob con Auth Header nativo)
+    async function exportVisitsCsv() {
+      try {
+        const btn = document.getElementById('btn-export-global-csv');
+        const origText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Exportando...`;
+        lucide.createIcons();
+
+        const res = await fetch('/api/export/visits.csv', { headers: authHeaders() });
+        if (!res.ok) {
+          alert("Error al exportar CSV. Comprueba tus permisos de administradora.");
+          btn.innerHTML = origText;
+          lucide.createIcons();
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `fisioteam_todas_las_visitas_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        btn.innerHTML = origText;
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+        alert("Error al descargar el archivo CSV");
+      }
+    }
+
+    async function exportSinglePatientCsv() {
+      if (!selectedPatientId) return;
+      try {
+        const res = await fetch(`/api/export/visits.csv?patient_id=${selectedPatientId}`, { headers: authHeaders() });
+        if (!res.ok) {
+          alert("Error al exportar CSV de la paciente.");
+          return;
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        const pName = (currentSelectedPatientData?.patient?.name || 'paciente').replace(/\s+/g, '_');
+        a.download = `fisioteam_${pName}_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (err) {
+        console.error(err);
+        alert("Error al descargar el archivo CSV de la paciente");
+      }
+    }
+
+    // MODAL DE GESTIÓN DE USUARIOS & ROLES
+    async function openUsersModal() {
+      openModal('modal-manage-users');
+      const res = await fetch('/api/users', { headers: authHeaders() });
+      const data = await res.json();
+      const container = document.getElementById('users-table-container');
+
+      if (!data.users || data.users.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-500">No hay usuarios registrados.</p>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="border border-slate-200 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 border-b border-slate-200 font-bold text-slate-700">
+              <tr>
+                <th class="p-3">Nombre</th>
+                <th class="p-3">Correo</th>
+                <th class="p-3">Rol</th>
+                <th class="p-3">Acceso a App</th>
+                <th class="p-3 text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${data.users.map(u => `
+                <tr class="hover:bg-slate-50">
+                  <td class="p-3 font-bold text-slate-900">${u.name}</td>
+                  <td class="p-3 text-slate-600">${u.email}</td>
+                  <td class="p-3">
+                    <select id="role-sel-${u.id}" class="bg-slate-100 border border-slate-200 rounded-lg p-1 text-[11px] font-semibold">
+                      <option value="fisio_admin" ${u.role === 'fisio_admin' ? 'selected' : ''}>Fisio Admin</option>
+                      <option value="jugadora" ${u.role === 'jugadora' ? 'selected' : ''}>Jugadora</option>
+                    </select>
+                  </td>
+                  <td class="p-3">
+                    <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" id="appr-chk-${u.id}" ${u.approved ? 'checked' : ''} class="w-4 h-4 text-teal-600 rounded">
+                      <span class="text-[11px] font-semibold ${u.approved ? 'text-teal-700' : 'text-amber-700'}">
+                        ${u.approved ? 'Permitido' : 'Bloqueado'}
+                      </span>
+                    </label>
+                  </td>
+                  <td class="p-3 text-right">
+                    <button onclick="saveUserRole(${u.id})" class="px-2.5 py-1 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-[10px] shadow-2xs">
+                      Guardar
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    async function saveUserRole(uid) {
+      const role = document.getElementById(`role-sel-${uid}`).value;
+      const approved = document.getElementById(`appr-chk-${uid}`).checked;
+
+      await fetch('/api/users/update-role', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ user_id: uid, role: role, approved: approved })
+      });
+      alert("Usuario actualizado correctamente.");
+      openUsersModal();
+      loadFisioData();
+    }
+
+    // UTILIDADES MODALES
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function renderEmptyPatient() {
+      document.getElementById('patient-header-section').innerHTML = `
+        <div class="text-center py-10">
+          <p class="text-sm font-bold text-slate-700">No hay ninguna paciente seleccionada</p>
+          <p class="text-xs text-slate-400 mt-1">Crea tu primera paciente con el botón superior.</p>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
