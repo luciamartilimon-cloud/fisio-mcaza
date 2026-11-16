@@ -214,6 +214,14 @@ class handler(http.server.BaseHTTPRequestHandler):
             conn.close()
             return self.send_json({"has_fisio": count > 0, "authenticated": bool(user), "user": user})
 
+        # Endpoint secreto de reseteo inicial limpio
+        if path == "/api/system/reset-users":
+            conn = get_db()
+            conn.run("DELETE FROM sessions;")
+            conn.run("DELETE FROM users;")
+            conn.close()
+            return self.send_json({"message": "Usuarios reseteados para el registro inicial de la fisio real"})
+
         if not user:
             return self.send_json({"error": "No autorizado. Inicia sesión."}, 401)
 
