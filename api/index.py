@@ -1,28 +1,51 @@
 import http.server
 import json
-import sqlite3
 import hashlib
 import os
 import urllib.parse
 from datetime import datetime
 
-# En Vercel Serverless, /tmp es el único directorio con permisos de escritura
-DB_PATH = "/tmp/fisioteam.db"
+# Driver PostgreSQL puro en Python (sin binarios C, compatible 100% con Vercel Serverless)
+import pg8000.native
 
+# Conexión persistente a Postgres en Vercel
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    pg_url = os.environ.get("POSTGRES_URL") or os.environ.get("DATABASE_URL")
+    if pg_url:
+        parsed = urllib.parse.urlparse(pg_url)
+        return pg8000.native.Connection(
+            user=parsed.username,
+            password=parsed.password,
+            host=parsed.hostname,
+            port=parsed.port or 5432,
+            database=parsed.path.lstrip("/"),
+            ssl_context=True
+        )
+    else:
+        # Fallback a credenciales directas de Vercel/Neon
+        return pg8000.native.Connection(
+            user=os.environ.get("PGUSER", "default"),
+            password=os.environ.get("PGPASSWORD", ""),
+            host=os.environ.get("PGHOST", "localhost"),
+            port=int(os.environ.get("PGPORT", 5432)),
+            database=os.environ.get("PGDATABASE", "verceldb"),
+            ssl_context=True
+        )
 
 def hash_pw(password):
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
+_DB_INITIALIZED = False
+
 def init_db():
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED:
+        return
     conn = get_db()
-    c = conn.cursor()
-    c.execute("""
+    
+    conn.run("""
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
@@ -32,18 +55,17 @@ def init_db():
     );
     """)
 
-    c.execute("""
+    conn.run("""
     CREATE TABLE IF NOT EXISTS sessions (
         token TEXT PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
-    c.execute("""
+    conn.run("""
     CREATE TABLE IF NOT EXISTS patients (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id SERIAL PRIMARY KEY,
         name TEXT NOT NULL,
         dorsal INTEGER DEFAULT 0,
         position TEXT DEFAULT 'Jugadora',
@@ -52,75 +74,73 @@ def init_db():
         antecedents TEXT DEFAULT '',
         physio_notes TEXT DEFAULT '',
         public_instruction TEXT DEFAULT '',
-        linked_user_id INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (linked_user_id) REFERENCES users(id) ON DELETE SET NULL
+        linked_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
-    c.execute("""
+    conn.run("""
     CREATE TABLE IF NOT EXISTS visits (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
+        id SERIAL PRIMARY KEY,
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
         date TEXT NOT NULL,
         status_after TEXT DEFAULT '',
         diagnosis TEXT NOT NULL,
         treatment TEXT DEFAULT '',
         private_notes TEXT DEFAULT '',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
-    c.execute("""
+    conn.run("""
     CREATE TABLE IF NOT EXISTS exercises (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        patient_id INTEGER NOT NULL,
+        id SERIAL PRIMARY KEY,
+        patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
         name TEXT NOT NULL,
         sets_reps TEXT NOT NULL,
         frequency TEXT DEFAULT '',
         instructions TEXT DEFAULT '',
         video_url TEXT DEFAULT '',
         completed INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
     """)
 
-    c.execute("SELECT COUNT(*) as count FROM patients;")
-    if c.fetchone()["count"] == 0:
-        c.execute("""
+    # Sembrar paciente de prueba inicial si la tabla está vacía
+    res = conn.run("SELECT COUNT(*) FROM patients;")
+    if res and res[0][0] == 0:
+        ins = conn.run("""
         INSERT INTO patients (name, dorsal, position, status, antecedents, physio_notes, public_instruction)
         VALUES (
             'Inés Fernández', 14, 'Centrocampista', 'En readaptación',
             'Esguince grado II en temporada 2024. Rotura fibrilar menor aductor hace 6 meses.',
             'Cierta reticencia en cambios de ritmo. Sin dolor en camilla. Buena evolución.',
             'Hielo 15 min al acabar gym. Rutina diaria de propiocepción antes de dormir.'
-        );
+        ) RETURNING id;
         """)
-        p_id = c.lastrowid
-        c.execute("""
-        INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes)
-        VALUES (?, '2026-11-15', 'En readaptación', 'Revisión semana 3 post-esguince tobillo derecho',
-                'Terapia manual miofascial en peroneos y tríceps sural. Movilizaciones de astrágalo.',
-                'Ganados 5 grados de flexión dorsal. Se autoriza carrera continua.');
-        """, (p_id,))
-        c.execute("""
-        INSERT INTO exercises (patient_id, name, sets_reps, frequency, instructions, video_url, completed)
-        VALUES (?, 'Equilibrio monopodal en toalla / inestable', '3 series x 45 seg', 'Diario',
-                'Mirada al frente, rodilla ligeramente flexionada sin tambalear.',
-                'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1);
-        """, (p_id,))
-        c.execute("""
-        INSERT INTO exercises (patient_id, name, sets_reps, frequency, instructions, video_url, completed)
-        VALUES (?, 'Excéntrico de gemelos en escalón', '3 series x 12 reps', 'Días alternos',
-                'Subir con dos pies, bajar lento con pierna derecha en 3 segundos.', '', 0);
-        """, (p_id,))
+        if ins:
+            p_id = ins[0][0]
+            conn.run("""
+            INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes)
+            VALUES (:pid, '2026-11-15', 'En readaptación', 'Revisión semana 3 post-esguince tobillo derecho',
+                    'Terapia manual miofascial en peroneos y tríceps sural. Movilizaciones de astrágalo.',
+                    'Ganados 5 grados de flexión dorsal. Se autoriza carrera continua.');
+            """, pid=p_id)
+            conn.run("""
+            INSERT INTO exercises (patient_id, name, sets_reps, frequency, instructions, video_url, completed)
+            VALUES (:pid, 'Equilibrio monopodal en toalla / inestable', '3 series x 45 seg', 'Diario',
+                    'Mirada al frente, rodilla ligeramente flexionada sin tambalear.',
+                    'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 1);
+            """, pid=p_id)
+            conn.run("""
+            INSERT INTO exercises (patient_id, name, sets_reps, frequency, instructions, video_url, completed)
+            VALUES (:pid, 'Excéntrico de gemelos en escalón', '3 series x 12 reps', 'Días alternos',
+                    'Subir con dos pies, bajar lento con pierna derecha en 3 segundos.', '', 0);
+            """, pid=p_id)
 
-    conn.commit()
     conn.close()
+    _DB_INITIALIZED = True
 
-# Handler para Vercel Serverless
 class handler(http.server.BaseHTTPRequestHandler):
     def send_json(self, data, status=200):
         self.send_response(status)
@@ -161,16 +181,17 @@ class handler(http.server.BaseHTTPRequestHandler):
             return None
 
         conn = get_db()
-        c = conn.cursor()
-        c.execute("""
+        rows = conn.run("""
             SELECT u.id, u.name, u.email, u.role, u.approved
             FROM sessions s
             JOIN users u ON s.user_id = u.id
-            WHERE s.token = ?;
-        """, (token,))
-        row = c.fetchone()
+            WHERE s.token = :tok;
+        """, tok=token)
         conn.close()
-        return dict(row) if row else None
+        if rows:
+            r = rows[0]
+            return {"id": r[0], "name": r[1], "email": r[2], "role": r[3], "approved": r[4]}
+        return None
 
     def read_json_body(self):
         content_length = int(self.headers.get("Content-Length", 0))
@@ -189,11 +210,9 @@ class handler(http.server.BaseHTTPRequestHandler):
 
         if path == "/api/status":
             conn = get_db()
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) as count FROM users WHERE role = 'fisio_admin';")
-            has_fisio = c.fetchone()["count"] > 0
+            count = conn.run("SELECT COUNT(*) FROM users WHERE role = 'fisio_admin';")[0][0]
             conn.close()
-            return self.send_json({"has_fisio": has_fisio, "authenticated": bool(user), "user": user})
+            return self.send_json({"has_fisio": count > 0, "authenticated": bool(user), "user": user})
 
         if not user:
             return self.send_json({"error": "No autorizado. Inicia sesión."}, 401)
@@ -205,70 +224,80 @@ class handler(http.server.BaseHTTPRequestHandler):
             if user["role"] != "fisio_admin":
                 return self.send_json({"error": "Acceso denegado"}, 403)
             conn = get_db()
-            c = conn.cursor()
-            c.execute("SELECT id, name, email, role, approved, created_at FROM users ORDER BY created_at DESC;")
-            rows = [dict(r) for r in c.fetchall()]
+            rows = conn.run("SELECT id, name, email, role, approved, created_at FROM users ORDER BY created_at DESC;")
             conn.close()
-            return self.send_json({"users": rows})
+            users = [{"id": r[0], "name": r[1], "email": r[2], "role": r[3], "approved": r[4], "created_at": r[5]} for r in rows]
+            return self.send_json({"users": users})
 
         if path == "/api/patients":
             conn = get_db()
-            c = conn.cursor()
             if user["role"] == "fisio_admin":
-                c.execute("""
-                    SELECT p.*, u.email as linked_email, u.approved as user_approved
+                rows = conn.run("""
+                    SELECT p.id, p.name, p.dorsal, p.position, p.status, p.phone, p.antecedents, p.physio_notes, p.public_instruction, p.linked_user_id,
+                           u.email as linked_email, u.approved as user_approved
                     FROM patients p
                     LEFT JOIN users u ON p.linked_user_id = u.id
                     ORDER BY p.name ASC;
                 """)
-                patients = [dict(r) for r in c.fetchall()]
                 conn.close()
+                patients = [{
+                    "id": r[0], "name": r[1], "dorsal": r[2], "position": r[3], "status": r[4],
+                    "phone": r[5], "antecedents": r[6], "physio_notes": r[7], "public_instruction": r[8],
+                    "linked_user_id": r[9], "linked_email": r[10], "user_approved": r[11]
+                } for r in rows]
                 return self.send_json({"patients": patients})
             else:
-                c.execute("""
+                rows = conn.run("""
                     SELECT id, name, dorsal, position, status, public_instruction
                     FROM patients
-                    WHERE linked_user_id = ?;
-                """, (user["id"],))
-                row = c.fetchone()
+                    WHERE linked_user_id = :uid;
+                """, uid=user["id"])
                 conn.close()
-                return self.send_json({"patient": dict(row) if row else None})
+                if rows:
+                    r = rows[0]
+                    p = {"id": r[0], "name": r[1], "dorsal": r[2], "position": r[3], "status": r[4], "public_instruction": r[5]}
+                    return self.send_json({"patient": p})
+                return self.send_json({"patient": None})
 
         if path.startswith("/api/patients/") and not path.endswith("/export"):
             parts = path.strip("/").split("/")
             if len(parts) == 3 and parts[2].isdigit():
                 pid = int(parts[2])
                 conn = get_db()
-                c = conn.cursor()
                 if user["role"] == "fisio_admin":
-                    c.execute("SELECT p.*, u.email as linked_email FROM patients p LEFT JOIN users u ON p.linked_user_id = u.id WHERE p.id = ?;", (pid,))
-                    pat = c.fetchone()
-                    if not pat:
+                    p_rows = conn.run("""
+                        SELECT p.id, p.name, p.dorsal, p.position, p.status, p.phone, p.antecedents, p.physio_notes, p.public_instruction, p.linked_user_id, u.email as linked_email
+                        FROM patients p LEFT JOIN users u ON p.linked_user_id = u.id
+                        WHERE p.id = :pid;
+                    """, pid=pid)
+                    if not p_rows:
                         conn.close()
                         return self.send_json({"error": "Paciente no encontrada"}, 404)
-                    c.execute("SELECT * FROM visits WHERE patient_id = ? ORDER BY date DESC, id DESC;", (pid,))
-                    visits = [dict(r) for r in c.fetchall()]
-                    c.execute("SELECT * FROM exercises WHERE patient_id = ? ORDER BY id DESC;", (pid,))
-                    exercises = [dict(r) for r in c.fetchall()]
+                    r = p_rows[0]
+                    pat = {"id": r[0], "name": r[1], "dorsal": r[2], "position": r[3], "status": r[4], "phone": r[5], "antecedents": r[6], "physio_notes": r[7], "public_instruction": r[8], "linked_user_id": r[9], "linked_email": r[10]}
+
+                    v_rows = conn.run("SELECT id, patient_id, date, status_after, diagnosis, treatment, private_notes FROM visits WHERE patient_id = :pid ORDER BY date DESC, id DESC;", pid=pid)
+                    visits = [{"id": v[0], "patient_id": v[1], "date": v[2], "status_after": v[3], "diagnosis": v[4], "treatment": v[5], "private_notes": v[6]} for v in v_rows]
+
+                    e_rows = conn.run("SELECT id, patient_id, name, sets_reps, frequency, instructions, video_url, completed FROM exercises WHERE patient_id = :pid ORDER BY id DESC;", pid=pid)
+                    exercises = [{"id": e[0], "patient_id": e[1], "name": e[2], "sets_reps": e[3], "frequency": e[4], "instructions": e[5], "video_url": e[6], "completed": bool(e[7])} for e in e_rows]
                     conn.close()
-                    return self.send_json({"patient": dict(pat), "visits": visits, "exercises": exercises})
+                    return self.send_json({"patient": pat, "visits": visits, "exercises": exercises})
                 else:
-                    c.execute("SELECT * FROM patients WHERE id = ? AND linked_user_id = ?;", (pid, user["id"]))
-                    pat = c.fetchone()
-                    if not pat:
+                    p_rows = conn.run("SELECT id, name, dorsal, position, status, public_instruction FROM patients WHERE id = :pid AND linked_user_id = :uid;", pid=pid, uid=user["id"])
+                    if not p_rows:
                         conn.close()
                         return self.send_json({"error": "No autorizado"}, 403)
-                    c.execute("SELECT id, date, status_after, diagnosis, treatment FROM visits WHERE patient_id = ? ORDER BY date DESC;", (pid,))
-                    visits = [dict(r) for r in c.fetchall()]
-                    c.execute("SELECT * FROM exercises WHERE patient_id = ? ORDER BY id DESC;", (pid,))
-                    exercises = [dict(r) for r in c.fetchall()]
+                    r = p_rows[0]
+                    pat = {"id": r[0], "name": r[1], "dorsal": r[2], "position": r[3], "status": r[4], "public_instruction": r[5]}
+
+                    v_rows = conn.run("SELECT id, date, status_after, diagnosis, treatment FROM visits WHERE patient_id = :pid ORDER BY date DESC;", pid=pid)
+                    visits = [{"id": v[0], "date": v[1], "status_after": v[2], "diagnosis": v[3], "treatment": v[4]} for v in v_rows]
+
+                    e_rows = conn.run("SELECT id, name, sets_reps, frequency, instructions, video_url, completed FROM exercises WHERE patient_id = :pid ORDER BY id DESC;", pid=pid)
+                    exercises = [{"id": e[0], "name": e[1], "sets_reps": e[2], "frequency": e[3], "instructions": e[4], "video_url": e[5], "completed": bool(e[6])} for e in e_rows]
                     conn.close()
-                    res_p = {
-                        "id": pat["id"], "name": pat["name"], "dorsal": pat["dorsal"],
-                        "position": pat["position"], "status": pat["status"],
-                        "public_instruction": pat["public_instruction"]
-                    }
-                    return self.send_json({"patient": res_p, "visits": visits, "exercises": exercises})
+                    return self.send_json({"patient": pat, "visits": visits, "exercises": exercises})
 
         if path == "/api/export/visits.csv":
             if user["role"] != "fisio_admin":
@@ -276,33 +305,27 @@ class handler(http.server.BaseHTTPRequestHandler):
             
             patient_filter = query.get("patient_id", [None])[0]
             conn = get_db()
-            c = conn.cursor()
             if patient_filter and patient_filter.isdigit():
-                c.execute("""
+                rows = conn.run("""
                     SELECT v.date, p.name as patient_name, p.dorsal, v.status_after, v.diagnosis, v.treatment, v.private_notes
-                    FROM visits v
-                    JOIN patients p ON v.patient_id = p.id
-                    WHERE p.id = ?
-                    ORDER BY v.date DESC;
-                """, (int(patient_filter),))
+                    FROM visits v JOIN patients p ON v.patient_id = p.id
+                    WHERE p.id = :pid ORDER BY v.date DESC;
+                """, pid=int(patient_filter))
                 pname = "paciente_" + patient_filter
             else:
-                c.execute("""
+                rows = conn.run("""
                     SELECT v.date, p.name as patient_name, p.dorsal, v.status_after, v.diagnosis, v.treatment, v.private_notes
-                    FROM visits v
-                    JOIN patients p ON v.patient_id = p.id
+                    FROM visits v JOIN patients p ON v.patient_id = p.id
                     ORDER BY v.date DESC, p.name ASC;
                 """)
                 pname = "todas_las_visitas"
-            
-            rows = c.fetchall()
             conn.close()
 
             csv_lines = ['"Fecha","Paciente","Dorsal","Estado Tras Visita","Diagnostico / Motivo","Tratamiento en Camilla","Notas Confidenciales Fisio"']
             for r in rows:
                 def esc(val):
                     return '"' + str(val or '').replace('"', '""') + '"'
-                csv_lines.append(f"{esc(r['date'])},{esc(r['patient_name'])},{esc(r['dorsal'])},{esc(r['status_after'])},{esc(r['diagnosis'])},{esc(r['treatment'])},{esc(r['private_notes'])}")
+                csv_lines.append(f"{esc(r[0])},{esc(r[1])},{esc(r[2])},{esc(r[3])},{esc(r[4])},{esc(r[5])},{esc(r[6])}")
 
             csv_data = "\n".join(csv_lines)
             filename = f"fisioteam_historial_{pname}_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
@@ -325,35 +348,27 @@ class handler(http.server.BaseHTTPRequestHandler):
                 return self.send_json({"error": "Todos los campos son obligatorios"}, 400)
 
             conn = get_db()
-            c = conn.cursor()
-            c.execute("SELECT id FROM users WHERE email = ?;", (email,))
-            if c.fetchone():
+            existing = conn.run("SELECT id FROM users WHERE email = :email;", email=email)
+            if existing:
                 conn.close()
                 return self.send_json({"error": "Ya existe una cuenta con este correo"}, 400)
 
-            c.execute("SELECT COUNT(*) as count FROM users;")
-            is_first = (c.fetchone()["count"] == 0)
-
+            is_first = (conn.run("SELECT COUNT(*) FROM users;")[0][0] == 0)
             role = "fisio_admin" if is_first else "jugadora"
             approved = 1 if is_first else 0
 
             pw_hash = hash_pw(password)
-            c.execute("""
+            user_id = conn.run("""
                 INSERT INTO users (name, email, password_hash, role, approved)
-                VALUES (?, ?, ?, ?, ?);
-            """, (name, email, pw_hash, role, approved))
-            user_id = c.lastrowid
-            conn.commit()
+                VALUES (:name, :email, :pw, :role, :appr) RETURNING id;
+            """, name=name, email=email, pw=pw_hash, role=role, appr=approved)[0][0]
 
             if role == "jugadora":
-                c.execute("UPDATE patients SET linked_user_id = ? WHERE lower(phone) = ?;", (user_id, email))
-                conn.commit()
+                conn.run("UPDATE patients SET linked_user_id = :uid WHERE lower(phone) = :email;", uid=user_id, email=email)
 
             token = hashlib.sha256(f"{user_id}_{email}_{datetime.now().isoformat()}".encode("utf-8")).hexdigest()
             user_info = {"id": user_id, "name": name, "email": email, "role": role, "approved": approved}
-            
-            c.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?);", (token, user_id))
-            conn.commit()
+            conn.run("INSERT INTO sessions (token, user_id) VALUES (:tok, :uid);", tok=token, uid=user_id)
             conn.close()
 
             return self.send_json({
@@ -368,24 +383,16 @@ class handler(http.server.BaseHTTPRequestHandler):
             password = body.get("password", "")
 
             conn = get_db()
-            c = conn.cursor()
-            c.execute("SELECT * FROM users WHERE email = ?;", (email,))
-            user = c.fetchone()
+            rows = conn.run("SELECT id, name, email, password_hash, role, approved FROM users WHERE email = :email;", email=email)
 
-            if not user or user["password_hash"] != hash_pw(password):
+            if not rows or rows[0][3] != hash_pw(password):
                 conn.close()
                 return self.send_json({"error": "Correo o contraseña incorrectos"}, 401)
 
-            token = hashlib.sha256(f"{user['id']}_{email}_{datetime.now().isoformat()}".encode("utf-8")).hexdigest()
-            user_info = {
-                "id": user["id"],
-                "name": user["name"],
-                "email": user["email"],
-                "role": user["role"],
-                "approved": user["approved"]
-            }
-            c.execute("INSERT INTO sessions (token, user_id) VALUES (?, ?);", (token, user["id"]))
-            conn.commit()
+            u = rows[0]
+            token = hashlib.sha256(f"{u[0]}_{email}_{datetime.now().isoformat()}".encode("utf-8")).hexdigest()
+            user_info = {"id": u[0], "name": u[1], "email": u[2], "role": u[4], "approved": u[5]}
+            conn.run("INSERT INTO sessions (token, user_id) VALUES (:tok, :uid);", tok=token, uid=u[0])
             conn.close()
             return self.send_json({"token": token, "user": user_info})
 
@@ -394,9 +401,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             if auth.startswith("Bearer "):
                 token = auth.split("Bearer ")[1].strip()
                 conn = get_db()
-                c = conn.cursor()
-                c.execute("DELETE FROM sessions WHERE token = ?;", (token,))
-                conn.commit()
+                conn.run("DELETE FROM sessions WHERE token = :tok;", tok=token)
                 conn.close()
             return self.send_json({"message": "Sesión cerrada"})
 
@@ -411,9 +416,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             new_role = body.get("role")
             new_approved = 1 if body.get("approved") else 0
             conn = get_db()
-            c = conn.cursor()
-            c.execute("UPDATE users SET role = ?, approved = ? WHERE id = ?;", (new_role, new_approved, target_id))
-            conn.commit()
+            conn.run("UPDATE users SET role = :r, approved = :a WHERE id = :id;", r=new_role, a=new_approved, id=target_id)
             conn.close()
             return self.send_json({"message": "Usuario actualizado"})
 
@@ -429,20 +432,17 @@ class handler(http.server.BaseHTTPRequestHandler):
             linked_email = body.get("linked_email", "").strip().lower()
 
             conn = get_db()
-            c = conn.cursor()
             linked_user_id = None
             if linked_email:
-                c.execute("SELECT id FROM users WHERE email = ?;", (linked_email,))
-                u = c.fetchone()
+                u = conn.run("SELECT id FROM users WHERE email = :email;", email=linked_email)
                 if u:
-                    linked_user_id = u["id"]
+                    linked_user_id = u[0][0]
 
-            c.execute("""
+            pid = conn.run("""
                 INSERT INTO patients (name, dorsal, position, status, phone, antecedents, physio_notes, public_instruction, linked_user_id)
-                VALUES (?, ?, ?, ?, ?, ?, 'Ficha creada. Pendiente de valoración.', 'Completar rutina activa.', ?);
-            """, (name, dorsal, position, status, phone, antecedents, linked_user_id))
-            pid = c.lastrowid
-            conn.commit()
+                VALUES (:name, :dorsal, :position, :status, :phone, :antecedents, 'Ficha creada. Pendiente de valoración.', 'Completar rutina activa.', :luid)
+                RETURNING id;
+            """, name=name, dorsal=dorsal, position=position, status=status, phone=phone, antecedents=antecedents, luid=linked_user_id)[0][0]
             conn.close()
             return self.send_json({"message": "Paciente creada", "id": pid})
 
@@ -454,29 +454,24 @@ class handler(http.server.BaseHTTPRequestHandler):
                     return self.send_json({"error": "Acceso denegado"}, 403)
 
                 conn = get_db()
-                c = conn.cursor()
                 fields = []
-                vals = []
+                params = {"pid": pid}
                 for k in ["name", "dorsal", "position", "status", "phone", "antecedents", "physio_notes", "public_instruction"]:
                     if k in body:
-                        fields.append(f"{k} = ?")
-                        vals.append(body[k])
+                        fields.append(f"{k} = :{k}")
+                        params[k] = body[k]
 
                 if "linked_email" in body:
                     le = body["linked_email"].strip().lower()
                     if le:
-                        c.execute("SELECT id FROM users WHERE email = ?;", (le,))
-                        u = c.fetchone()
-                        fields.append("linked_user_id = ?")
-                        vals.append(u["id"] if u else None)
+                        u = conn.run("SELECT id FROM users WHERE email = :em;", em=le)
+                        fields.append("linked_user_id = :luid")
+                        params["luid"] = u[0][0] if u else None
                     else:
                         fields.append("linked_user_id = NULL")
 
                 if fields:
-                    vals.append(pid)
-                    c.execute(f"UPDATE patients SET {', '.join(fields)} WHERE id = ?;", vals)
-                    conn.commit()
-
+                    conn.run(f"UPDATE patients SET {', '.join(fields)} WHERE id = :pid;", **params)
                 conn.close()
                 return self.send_json({"message": "Paciente actualizada"})
 
@@ -485,9 +480,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             if user["role"] != "fisio_admin":
                 return self.send_json({"error": "Acceso denegado"}, 403)
             conn = get_db()
-            c = conn.cursor()
-            c.execute("DELETE FROM patients WHERE id = ?;", (pid,))
-            conn.commit()
+            conn.run("DELETE FROM patients WHERE id = :pid;", pid=pid)
             conn.close()
             return self.send_json({"message": "Paciente y todo su historial eliminados"})
 
@@ -503,14 +496,11 @@ class handler(http.server.BaseHTTPRequestHandler):
             private_notes = body.get("private_notes", "")
 
             conn = get_db()
-            c = conn.cursor()
-            c.execute("""
+            conn.run("""
                 INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes)
-                VALUES (?, ?, ?, ?, ?, ?);
-            """, (pid, date, status_after, diagnosis, treatment, private_notes))
-            
-            c.execute("UPDATE patients SET status = ? WHERE id = ?;", (status_after, pid))
-            conn.commit()
+                VALUES (:pid, :date, :status_after, :diagnosis, :treatment, :private_notes);
+            """, pid=pid, date=date, status_after=status_after, diagnosis=diagnosis, treatment=treatment, private_notes=private_notes)
+            conn.run("UPDATE patients SET status = :status WHERE id = :pid;", status=status_after, pid=pid)
             conn.close()
             return self.send_json({"message": "Visita registrada"})
 
@@ -519,9 +509,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             if user["role"] != "fisio_admin":
                 return self.send_json({"error": "Acceso denegado"}, 403)
             conn = get_db()
-            c = conn.cursor()
-            c.execute("DELETE FROM visits WHERE id = ?;", (vid,))
-            conn.commit()
+            conn.run("DELETE FROM visits WHERE id = :vid;", vid=vid)
             conn.close()
             return self.send_json({"message": "Visita eliminada"})
 
@@ -531,21 +519,17 @@ class handler(http.server.BaseHTTPRequestHandler):
                 return self.send_json({"error": "Acceso denegado"}, 403)
             
             conn = get_db()
-            c = conn.cursor()
-            c.execute("""
+            conn.run("""
                 INSERT INTO exercises (patient_id, name, sets_reps, frequency, instructions, video_url)
-                VALUES (?, ?, ?, ?, ?, ?);
-            """, (pid, body.get("name"), body.get("sets_reps"), body.get("frequency", ""), body.get("instructions", ""), body.get("video_url", "")))
-            conn.commit()
+                VALUES (:pid, :name, :sets_reps, :frequency, :instructions, :video_url);
+            """, pid=pid, name=body.get("name"), sets_reps=body.get("sets_reps"), frequency=body.get("frequency", ""), instructions=body.get("instructions", ""), video_url=body.get("video_url", ""))
             conn.close()
             return self.send_json({"message": "Ejercicio añadido"})
 
         if path.startswith("/api/exercises/") and path.endswith("/toggle"):
             eid = int(path.split("/")[3])
             conn = get_db()
-            c = conn.cursor()
-            c.execute("UPDATE exercises SET completed = NOT completed WHERE id = ?;", (eid,))
-            conn.commit()
+            conn.run("UPDATE exercises SET completed = CASE WHEN completed = 1 THEN 0 ELSE 1 END WHERE id = :eid;", eid=eid)
             conn.close()
             return self.send_json({"message": "Estado de ejercicio cambiado"})
 
@@ -554,9 +538,7 @@ class handler(http.server.BaseHTTPRequestHandler):
             if user["role"] != "fisio_admin":
                 return self.send_json({"error": "Acceso denegado"}, 403)
             conn = get_db()
-            c = conn.cursor()
-            c.execute("DELETE FROM exercises WHERE id = ?;", (eid,))
-            conn.commit()
+            conn.run("DELETE FROM exercises WHERE id = :eid;", eid=eid)
             conn.close()
             return self.send_json({"message": "Ejercicio eliminado"})
 
