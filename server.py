@@ -549,19 +549,41 @@ class FisioHandler(http.server.SimpleHTTPRequestHandler):
             diagnosis = body.get("diagnosis", "")
             treatment = body.get("treatment", "")
             private_notes = body.get("private_notes", "")
+            appointment_id = body.get("appointment_id")
+            sync_to_calendar = body.get("sync_to_calendar", True)
+            time = body.get("time", datetime.now().strftime("%H:%M"))
+            duration = int(body.get("duration", 30))
 
             conn = get_db()
             c = conn.cursor()
             c.execute("""
-                INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes)
-                VALUES (?, ?, ?, ?, ?, ?);
-            """, (pid, date, status_after, diagnosis, treatment, private_notes))
+                INSERT INTO visits (patient_id, date, status_after, diagnosis, treatment, private_notes, appointment_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+            """, (pid, date, status_after, diagnosis, treatment, private_notes, appointment_id))
+            vid = c.lastrowid
             
             # Actualizar también el estado general de la paciente
             c.execute("UPDATE patients SET status = ? WHERE id = ?;", (status_after, pid))
+
+            # Correlación bidireccional con la agenda:
+            if appointment_id:
+                c.execute("""
+                    UPDATE appointments 
+                    SET status = 'Realizada', visit_id = ?
+                    WHERE id = ?;
+                """, (vid, appointment_id))
+            elif sync_to_calendar and vid:
+                uid = f"fisioteam-visit-{vid}-{int(datetime.now().timestamp())}@fisio-mcaza"
+                c.execute("""
+                    INSERT INTO appointments (patient_id, title, date, time, duration, status, notes, uid, visit_id)
+                    VALUES (?, ?, ?, ?, ?, 'Realizada', ?, ?, ?);
+                """, (pid, diagnosis or "Sesión en camilla", date, time, duration, treatment, uid, vid))
+                aid = c.lastrowid
+                c.execute("UPDATE visits SET appointment_id = ? WHERE id = ?;", (aid, vid))
+
             conn.commit()
             conn.close()
-            return self.send_json({"message": "Visita registrada"})
+            return self.send_json({"message": "Visita registrada y sincronizada con la agenda", "visit_id": vid})
 
         # ELIMINAR VISITA (SOLO FISIO)
         if path.startswith("/api/visits/") and path.endswith("/delete"):
